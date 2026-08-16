@@ -18,6 +18,7 @@ notes/
 *.pfx
 
 # Runtime/user state and generated material
+.tmp/
 runtime/
 logs/
 scripts/logs/

@@ -39,6 +39,7 @@ from routes import (
     char_swap,
     crawler,
     director,
+    experience,
     gallery,
     maintenance,
     update as update_routes,
@@ -189,6 +190,7 @@ app.include_router(settings.router)
 app.include_router(char_swap.router)
 app.include_router(nai.router)
 app.include_router(online.router)
+app.include_router(experience.router)
 app.include_router(pipeline.router)
 app.include_router(crawler.router)
 app.include_router(pixiv_intake.router)

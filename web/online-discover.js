@@ -141,6 +141,14 @@
   if (onlineBtn) {
     onlineBtn.addEventListener("click", () => setOnline(!isOnline()));
   }
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    if (params.get("workspace") === "acquire" || params.get("online") === "1") {
+      setOnline(true);
+    }
+  } catch (_) {
+    /* ignore */
+  }
   document.getElementById("gallerySourceSwitch")?.addEventListener("click", (event) => {
     if (event.target.closest("[data-gallery-source]") && isOnline()) setOnline(false);
   });

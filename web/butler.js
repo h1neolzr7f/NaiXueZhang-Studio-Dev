@@ -200,6 +200,10 @@
   }
 
   function situationFromTask(task) {
+    if (window.ExperienceCharacter && typeof window.ExperienceCharacter.situationFromTask === "function") {
+      const mapped = window.ExperienceCharacter.situationFromTask(task);
+      if (mapped) return mapped;
+    }
     if (!task) return state.situation || "ready";
     if (task.terminal) return task.status === "succeeded" ? "happy" : "sorry";
     const blob = `${task.title || ""} ${task.kind || ""} ${task.message || ""} ${task.phase || ""}`;

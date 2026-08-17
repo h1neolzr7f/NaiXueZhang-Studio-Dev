@@ -709,6 +709,37 @@
     setTcStatus(ok ? ("已收进提示词库 " + ok + " 条。点「提示词库」标签查看。") : "这次没有收藏成功。可以换几条再试。");
   }
 
+  function buildBookmarklet(token) {
+    const base = window.location.origin;
+    const code = "(function(){try{var f=document.createElement('form');f.method='POST';f.action='"
+      + base + "/acquire/quick-import';f.target='_blank';var a=function(n,v){var i=document.createElement('input');i.type='hidden';i.name=n;i.value=v;f.appendChild(i);};a('url',location.href);a('title',document.title);a('token','"
+      + token + "');document.body.appendChild(f);f.submit();f.remove();}catch(e){alert('入库失败：'+e);}})()";
+    return "javascript:" + code;
+  }
+  async function setupBookmarklet() {
+    const link = document.querySelector("[data-bookmarklet]");
+    const note = document.querySelector("[data-bookmark-note]");
+    if (!link) return;
+    try {
+      const data = await window.ApiClient.get("/api/acquire/bookmark");
+      const href = buildBookmarklet(String((data && data.token) || ""));
+      link.href = href;
+      link.dataset.ready = "1";
+      const copyBtn = document.querySelector("[data-bookmark-copy]");
+      if (copyBtn) {
+        copyBtn.addEventListener("click", () => {
+          copyText(href, (ok) => {
+            if (note) note.textContent = ok
+              ? "书签代码已复制。手动新建一个书签，把地址粘进去即可。"
+              : "复制失败。可以长按「一键入库」按钮手动复制链接。";
+          });
+        });
+      }
+    } catch (_) {
+      if (note) note.textContent = "书签初始化失败：本机服务没读到令牌。刷新本页再试。";
+    }
+  }
+
   function guardPixivStart() {
     const watch = document.getElementById("pixivStartWatch");
     const once = document.getElementById("pixivRunOnce");
@@ -831,6 +862,7 @@
       }
     });
     guardPixivStart();
+    void setupBookmarklet();
     document.querySelector("[data-pixiv-watchdog]")?.addEventListener("click", () => { void toggleWatchdog(); });
     window.addEventListener("pixiv-intake-report", (event) => {
       pixivLiveEventAt = Date.now();

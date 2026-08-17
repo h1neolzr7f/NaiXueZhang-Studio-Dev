@@ -259,6 +259,11 @@ class PixivPublicWebSource(PixivNAISource):
                 page_payload = pages_payload
         return map_public_illust(detail, pages=page_payload, search_item=item)
 
+    def fetch_work(self, work_id: int) -> PixivWork | None:
+        """Fetch one public work by id for explicit single-work quick import."""
+
+        return self._hydrate({"id": int(work_id)})
+
     def _fetch_search(self, url: str) -> PixivSourcePage:
         payload = self._get_json(url)
         body = payload.get("body")

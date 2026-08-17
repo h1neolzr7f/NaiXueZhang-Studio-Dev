@@ -34,6 +34,7 @@ from gallery_catalog import close_all_gallery_dbs
 from pixiv_accounts import start_stats_scheduler, stop_stats_scheduler
 from runtime_resources import RuntimeResources
 from routes import (
+    acquire_quick,
     aitag,
     butler,
     char_swap,
@@ -128,10 +129,15 @@ app = FastAPI(title="Pixiv NAI Gallery", lifespan=_lifespan)
 # matching token are rejected unless they are read-only (GET/HEAD/OPTIONS).
 SESSION_TOKEN: str = secrets.token_urlsafe(32)
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+# The bookmarklet quick-import arrives as a form navigation from the target
+# site and cannot carry the per-process session token.  It is guarded by its
+# own scoped bookmark token (acquire_bookmark.py) which only authorizes
+# intake actions, so CORS stays closed to third-party origins.
+_SESSION_TOKEN_EXEMPT_PATHS = frozenset({"/acquire/quick-import"})
 
 
 async def _require_session_token(request: Request, call_next):
-    if request.method.upper() in _WRITE_METHODS:
+    if request.method.upper() in _WRITE_METHODS and request.url.path not in _SESSION_TOKEN_EXEMPT_PATHS:
         provided = request.headers.get("x-session-token") or ""
         if provided != SESSION_TOKEN:
             return JSONResponse(status_code=403, content={"detail": "缺少有效的会话令牌（X-Session-Token）"})
@@ -188,6 +194,7 @@ app.include_router(director.router)
 app.include_router(references.router)
 app.include_router(aitag.router)
 app.include_router(tagcloud.router)
+app.include_router(acquire_quick.router)
 app.include_router(settings.router)
 app.include_router(char_swap.router)
 app.include_router(nai.router)

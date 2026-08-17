@@ -216,7 +216,72 @@
     renderStatus(status, pixiv);
     renderUsage(usage);
     renderKnowledge(knowledge);
+    await loadMemories();
   }
+
+  function renderMemories(rows) {
+    const host = $("experienceMemoryList");
+    if (!host) return;
+    if (!rows.length) {
+      host.innerHTML = "<p>还没有体验层记忆。</p>";
+      return;
+    }
+    host.innerHTML = rows.map(() => (
+      `<article class="field-card"><strong></strong><small></small><button type="button" class="settings-button secondary" data-forget="">忘记</button></article>`
+    )).join("");
+    Array.from(host.children).forEach((card, index) => {
+      const item = rows[index] || {};
+      const strong = card.querySelector("strong");
+      const small = card.querySelector("small");
+      const button = card.querySelector("[data-forget]");
+      if (strong) strong.textContent = item.text || "";
+      if (small) small.textContent = (item.layer || "user_preference") + (item.authoritative ? "" : " · 非权威");
+      if (button) button.setAttribute("data-forget", String(item.id || ""));
+    });
+  }
+  async function loadMemories() {
+    const host = $("experienceMemoryList");
+    if (!host) return;
+    try {
+      const data = await api("/api/experience/memories");
+      renderMemories((data && data.memories) || []);
+    } catch (error) {
+      host.textContent = "记忆暂时读不到：" + (error.message || error);
+    }
+  }
+  $("experienceMemoryAdd")?.addEventListener("click", async () => {
+    const input = $("experienceMemoryText");
+    const note = $("experienceMemoryMessage");
+    const text = String((input && input.value) || "").trim();
+    if (!text) {
+      if (note) note.textContent = "先写一条偏好再记住。";
+      return;
+    }
+    try {
+      await api("/api/experience/memories", {
+        method: "POST",
+        body: { text, layer: "user_preference", scope: "preference", source: "user" },
+      });
+      if (input) input.value = "";
+      if (note) note.textContent = "已记下。不会用来授权付费。";
+      await loadMemories();
+    } catch (error) {
+      if (note) note.textContent = error.message || String(error);
+    }
+  });
+  $("experienceMemoryList")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-forget]");
+    if (!button) return;
+    const id = button.getAttribute("data-forget");
+    if (!id) return;
+    try {
+      await api("/api/experience/memories/" + encodeURIComponent(id) + "/forget", { method: "POST", body: {} });
+      await loadMemories();
+    } catch (error) {
+      const note = $("experienceMemoryMessage");
+      if (note) note.textContent = error.message || String(error);
+    }
+  });
 
   function prefsPayload() {
     return {

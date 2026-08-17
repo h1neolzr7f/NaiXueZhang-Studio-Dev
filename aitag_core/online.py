@@ -45,6 +45,8 @@ _SORT_MAP = {
 }
 _TIME_RANGE_MAP = {
     "all": "all",
+    "day": "day",
+    "today": "day",
     "week": "week",
     "month": "month",
     "current": "current",

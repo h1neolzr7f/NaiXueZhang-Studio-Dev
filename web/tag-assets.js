@@ -125,6 +125,29 @@ function renderQuickTags() {
   }));
 }
 
+async function renderPromptLibrary() {
+  const host = $("promptLibList");
+  if (!host) return;
+  const hint = $("promptLibHint");
+  let items = [];
+  try {
+    const data = await api("/api/nai/tagcloud/collection");
+    items = (data && data.items) || [];
+  } catch (_) {
+    items = [];
+  }
+  if (!items.length) {
+    host.innerHTML = "";
+    if (hint) hint.hidden = false;
+    return;
+  }
+  if (hint) hint.hidden = true;
+  host.innerHTML = items.slice(-12).reverse().map((item) => {
+    const label = `${item.title || item.entry_id} · ${item.codex_title || item.codex_id}`;
+    return `<a class="asset-quick-button" href="/discover?site=tagcloud" title="提示词库里的法典词条，点进去看完整提示词">${escapeHtml(label)}</a>`;
+  }).join("");
+}
+
 function cardQualification(item) {
   const qualification = qualificationFrom(item);
   const reason = qualification.reasons.join("；");
@@ -638,6 +661,7 @@ function bind() {
     $("resultInfo").textContent = "正在加载 AITag 在线热门资产…";
   }
   renderQuickTags();
+  void renderPromptLibrary();
   setSourceUi();
   renderResults();
   $("assetSearch").addEventListener("click", () => search({ reset: true }));

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>我的图库 · Nai学长工作室</title>
+  <link rel="stylesheet" href="/assets/shared/site-nav.css?v=756cdf2a38" />
+  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=1069a21e9e" />
+  <link rel="stylesheet" href="/assets/studio-theme.css?v=51de05869a" />
+</head>
+<body data-page="library">
+  <div id="siteNav"></div>
+  <main class="ex-page">
+    <section class="ex-hello">
+      <div>
+        <h1>我的图库</h1>
+        <p>本机素材三库隔离：本机图库、自选库、QQ 群库。点卡片看详情、找相似、管收藏。</p>
+      </div>
+    </section>
+    <section class="ex-ribbon" data-ribbon>
+      <div><small>当前库作品</small><b data-stat-total>0</b></div>
+      <div><small>收藏</small><b data-stat-favs>0</b></div>
+      <div><small>待生成</small><b data-stat-queue>0</b></div>
+      <div><small>相似索引</small><b data-stat-index>—</b></div>
+      <div><small>占用空间</small><b data-stat-size>—</b></div>
+      <div><small>磁盘剩余</small><b data-stat-free>—</b></div>
+    </section>
+    <form class="ex-toolbar" data-search>
+      <button class="ex-tab is-on" type="button" data-view="all">全部</button>
+      <button class="ex-tab" type="button" data-view="favorites">收藏</button>
+      <button class="ex-tab" type="button" data-view="queue">待生成</button>
+      <button class="ex-tab" type="button" data-view="dupes">重复</button>
+      <select name="gallery" data-gallery></select>
+      <select name="group" data-group hidden></select>
+      <input name="q" type="search" placeholder="角色 / 标签 / ID / 作者" style="flex:1;min-width:200px" />
+      <select name="sort">
+        <option value="new">最新入库</option>
+        <option value="old">最早发布</option>
+        <option value="monthly">收藏热度</option>
+        <option value="count">图数最多</option>
+        <option value="title">标题顺序</option>
+      </select>
+      <button class="ex-btn primary" type="submit">搜索</button>
+      <button class="ex-btn" type="button" data-open-folder>打开本机文件夹</button>
+      <button class="ex-btn" type="button" data-queue-clear hidden>清空待生成</button>
+    </form>
+    <div class="ex-drop" data-drop hidden>
+      <p>把带 NovelAI 元数据的 PNG 拖到这里，导入当前自选库 / QQ 群库。</p>
+      <input type="file" data-drop-files accept="image/png,image/jpeg,.png,.jpg,.jpeg" multiple hidden />
+      <button class="ex-btn" type="button" data-drop-pick>选择文件</button>
+    </div>
+    <div class="ex-lib">
+      <aside class="ex-inner-side">
+        <h3>快速访问</h3>
+        <a href="/library">最近导入</a>
+        <a href="/generated">最近生成</a>
+        <a href="#" data-view-link="favorites">收藏</a>
+        <a href="#" data-view-link="queue">待生成队列</a>
+        <h3>我的合集</h3>
+        <a href="/codex" data-collection>自选库</a>
+        <a href="/references" data-collection>参考库</a>
+        <a href="/tag-assets" data-collection>本地资产</a>
+        <h3>标签</h3>
+        <div class="ex-tags" data-tags></div>
+      </aside>
+      <section>
+        <div class="ex-grid" data-grid></div>
+        <div data-dupes hidden></div>
+        <div class="ex-actions ex-more-row">
+          <button class="ex-btn" type="button" data-more hidden>加载更多</button>
+        </div>
+        <p class="ex-empty" data-status></p>
+        <div class="ex-select-bar">
+          <span data-picked>未选择资产</span>
+          <div class="ex-actions" data-batch-actions hidden>
+            <button class="ex-btn" type="button" data-batch-fav>收藏所选</button>
+            <button class="ex-btn" type="button" data-batch-queue>待生成所选</button>
+            <button class="ex-btn" type="button" data-batch-clear>清空选择</button>
+          </div>
+          <div class="ex-actions" data-single-actions>
+            <button class="ex-btn" type="button" data-fav-toggle>收藏</button>
+            <button class="ex-btn" type="button" data-queue-toggle>加入待生成</button>
+            <a class="ex-btn" data-remix href="/remix">换角色</a>
+            <a class="ex-btn primary" data-use href="/studio">用此图生成</a>
+          </div>
+        </div>
+      </section>
+      <aside class="ex-panel" data-detail>
+        <h3>资产详情</h3>
+        <p class="ex-empty">点选一张作品查看来源与谱系。</p>
+      </aside>
+    </div>
+  </main>
+  <script src="/assets/shared/api-client.js?v=2a8a70c746"></script>
+  <script src="/assets/shared/work-bridge.js?v=e03f149e05"></script>
+  <script src="/assets/shared/site-nav.js?v=3846bb4a62"></script>
+  <script src="/assets/library-desk.js?v=fc044b7ef9"></script>
+</body>
+</html>

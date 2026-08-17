@@ -163,6 +163,9 @@
     if (!target) return;
     try {
       const payload = await request("/api/crawler/pixiv/report");
+      try {
+        window.dispatchEvent(new CustomEvent("pixiv-intake-report", { detail: payload }));
+      } catch (_) { /* event fan-out is best-effort */ }
       const report = payload.report || {};
       const process = payload.process || {};
       const reasons = Object.entries(report.rejection_reasons || {})

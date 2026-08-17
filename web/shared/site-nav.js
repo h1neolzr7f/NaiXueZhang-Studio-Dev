@@ -247,9 +247,28 @@
     document.head.appendChild(script);
   }
 
+  function loadExperienceRail() {
+    const path = (window.location.pathname || "").replace(/\/+$/, "") || "/";
+    if (path.startsWith("/app/butler")) return;
+    if (document.querySelector("script[data-experience-rail]")) return;
+    if (!document.querySelector("link[data-experience-rail]")) {
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = "/assets/shared/experience-rail.css?v=1069a21e9e";
+      css.dataset.experienceRail = "1";
+      document.head.appendChild(css);
+    }
+    const script = document.createElement("script");
+    script.src = "/assets/shared/experience-rail.js?v=44b9b558f8";
+    script.dataset.experienceRail = "1";
+    script.async = true;
+    document.head.appendChild(script);
+  }
+
   function start() {
     mountNav();
     loadCompanionDock();
+    loadExperienceRail();
     mountResponsibilityNotice();
   }
   if (typeof window.addEventListener === "function") {

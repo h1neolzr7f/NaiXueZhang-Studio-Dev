@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>生成台 · Nai学长工作室</title>
+  <link rel="stylesheet" href="/assets/shared/site-nav.css?v=756cdf2a38" />
+  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=1069a21e9e" />
+  <link rel="stylesheet" href="/assets/studio-theme.css?v=51de05869a" />
+</head>
+<body data-page="generate">
+  <div id="siteNav"></div>
+  <main class="ex-page">
+    <section class="ex-hello">
+      <div>
+        <h1>生成台 / 生成助手</h1>
+        <p>提示词在这里编辑；真正出图仍走现有工作台与付费确认。</p>
+      </div>
+        <span class="ex-online" data-online>● 在线</span>
+    </section>
+    <p class="ex-empty" data-source>文生图 · 需要参考图时从图库点「用此图生成」</p>
+    <div class="ex-gen">
+      <section class="ex-panel">
+        <h3>正向提示词 <span class="ex-count" data-prompt-count>0/1000</span></h3>
+        <textarea class="ex-field" data-prompt rows="8" placeholder="1girl, neon lights, rainy night"></textarea>
+        <div class="ex-actions">
+          <button class="ex-btn" type="button" data-optimize>智能优化</button>
+          <button class="ex-btn" type="button" data-sanitize>清洗风险词</button>
+          <button class="ex-btn" type="button" data-random>随机提示词</button>
+          <button class="ex-btn" type="button" data-clear>清空</button>
+        </div>
+        <h3>负面提示词 <span class="ex-count" data-uc-count>0/1000</span></h3>
+        <textarea class="ex-field" data-uc rows="4" placeholder="lowres, blurry"></textarea>
+        <div class="ex-panel" style="margin:12px 0;padding:12px">
+          <b>模型</b>
+          <p>使用本机已配置的 NovelAI 模型。切换在设置里完成。</p>
+          <a class="ex-btn" href="/settings">切换模型</a>
+        </div>
+        <div class="ex-sliders">
+          <label>采样器 <select class="ex-field" data-sampler></select> <span></span></label>
+          <label>步数 <input data-steps type="range" min="1" max="50" value="28" /> <b data-steps-val>28</b></label>
+          <label>CFG <input data-cfg type="range" min="1" max="20" step="0.5" value="7.5" /> <b data-cfg-val>7.5</b></label>
+        </div>
+        <div class="ex-toolbar">
+          <label>分辨率 <select class="ex-field" data-size></select></label>
+          <label>Seed <input class="ex-field" data-seed type="number" value="-1" /></label>
+          <label>张数 <input class="ex-field" data-batch type="number" min="1" max="8" value="1" style="width:72px" /></label>
+        </div>
+        <div class="ex-panel" style="margin:12px 0;padding:12px">
+          <b>换角色（可选）</b>
+          <p>角色槽替换走现有换角台，不在这里另做一套。</p>
+          <a class="ex-btn" href="/remix">打开换角</a>
+        </div>
+        <button class="ex-start" type="button" data-start>开始生成<small>草稿与参数交接进完整工作台；付费出图需确认，此页不会扣费</small></button>
+        <p class="ex-empty" data-gen-status></p>
+        <div data-confirm-card></div>
+      </section>
+      <section class="ex-panel">
+        <h3>当前任务</h3>
+        <div data-job><p class="ex-empty">读取真实生成队列…</p></div>
+        <h3>待生成队列</h3>
+        <div class="ex-results" data-studio-queue></div>
+        <p class="ex-empty" data-queue-status></p>
+        <h3>生成进度与活动</h3>
+        <div data-timeline></div>
+        <h3>生成结果</h3>
+        <p class="ex-empty" data-result-status>读取真实生成库…</p>
+        <div class="ex-results" data-results></div>
+      </section>
+    </div>
+  </main>
+  <script src="/assets/shared/api-client.js?v=2a8a70c746"></script>
+  <script src="/assets/shared/work-bridge.js?v=e03f149e05"></script>
+  <script src="/assets/shared/site-nav.js?v=3846bb4a62"></script>
+  <script src="/assets/generate-desk.js?v=1247d1fe56"></script>
+</body>
+</html>

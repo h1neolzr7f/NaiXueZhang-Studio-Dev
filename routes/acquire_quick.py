@@ -15,7 +15,6 @@ from fastapi import APIRouter, Form
 from fastapi.responses import HTMLResponse
 
 from acquire_bookmark import get_or_create_token, rotate_token, verify_token
-from pixiv_quick_intake import quick_import_pixiv_work
 
 router = APIRouter()
 
@@ -35,10 +34,8 @@ def parse_acquire_url(raw: str) -> dict[str, object]:
     if parsed.scheme not in {"http", "https"} or not host:
         raise ValueError("不是有效的网址")
     if host in _PIXIV_HOSTS:
-        match = _PIXIV_ARTWORK_RE.search(parsed.path or "")
-        if match:
-            return {"site": "pixiv", "work_id": int(match.group(1))}
-        raise ValueError("请在 Pixiv 的作品页（网址带 /artworks/数字）点书签")
+        # 产品决策：Pixiv 不做网页单采，统一由爬虫按任务筛选入库。
+        return {"site": "pixiv-crawler"}
     if host in _AITAG_HOSTS:
         match = _AITAG_WORK_RE.fullmatch(parsed.path or "")
         if match:
@@ -52,13 +49,11 @@ def parse_acquire_url(raw: str) -> dict[str, object]:
         if codex and entry:
             return {"site": "tagcloud", "codex_id": codex, "entry_id": entry}
         raise ValueError("请在法典图鉴打开词条后再点书签（地址栏应带 ?codex=…&entry=…）")
-    raise ValueError("这个网站不支持一键入库。目前支持：Pixiv 作品页、AITag 作品页、法典图鉴词条页")
+    raise ValueError("这个网站不支持一键入库。目前支持：AITag 作品页、法典图鉴词条页；Pixiv 请用爬虫采集")
 
 
 def _run_action(target: dict[str, object]) -> dict[str, object]:
     site = str(target.get("site") or "")
-    if site == "pixiv":
-        return quick_import_pixiv_work(int(target["work_id"]))
     if site == "aitag":
         from routes.aitag import api_aitag_import
 
@@ -266,6 +261,13 @@ def api_acquire_quick_import(
         target = parse_acquire_url(url)
     except ValueError as exc:
         return _result_page(ok=False, title="这个页面不能入库", message=str(exc))
+    if target["site"] == "pixiv-crawler":
+        return _result_page(
+            ok=True,
+            title="Pixiv 由爬虫直接采集",
+            message="Pixiv 不用网页单采：在「在线发现」填好标签或画师编号，开爬虫后它会按 NovelAI 元数据自动筛选入库。",
+            library_url="/discover",
+        )
     if target["site"] == "aitag" and not confirm:
         # AITag 作品先选图与角色槽，确认后才真正导入。
         try:

@@ -11,19 +11,15 @@ from tests.asgi_client import TestClient
 
 
 class ParseAcquireUrlTests(unittest.TestCase):
-    def test_pixiv_artwork_variants(self):
+    def test_pixiv_routes_to_crawler_guidance(self):
+        # 产品决策：Pixiv 不做网页单采，任何 pixiv.net 页面都引导去爬虫。
         for url in (
             "https://www.pixiv.net/artworks/12345678",
             "https://www.pixiv.net/en/artworks/12345678",
-            "https://pixiv.net/artworks/12345678?comments=1",
+            "https://pixiv.net/ranking.php",
         ):
             target = parse_acquire_url(url)
-            self.assertEqual(target, {"site": "pixiv", "work_id": 12345678})
-
-    def test_pixiv_non_artwork_page_is_guided(self):
-        with self.assertRaises(ValueError) as ctx:
-            parse_acquire_url("https://www.pixiv.net/ranking.php")
-        self.assertIn("/artworks/", str(ctx.exception))
+            self.assertEqual(target, {"site": "pixiv-crawler"})
 
     def test_aitag_work(self):
         target = parse_acquire_url("https://aitag.win/i/987654")
@@ -109,23 +105,16 @@ class QuickImportRouteTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("不支持", resp.text)
 
-    def test_pixiv_quick_import_dispatches(self):
+    def test_pixiv_quick_import_shows_crawler_guidance(self):
         client = self._client()
         token = acquire_bookmark.get_or_create_token()
-        with patch("routes.acquire_quick.quick_import_pixiv_work") as mock_intake:
-            mock_intake.return_value = {
-                "ok": True,
-                "title": "测试作品",
-                "message": "已入库：测试作品（接受 1 页）",
-                "library_url": "/library?q=123",
-            }
-            resp = client.post(
-                "/acquire/quick-import",
-                data={"url": "https://www.pixiv.net/artworks/123", "token": token},
-            )
+        resp = client.post(
+            "/acquire/quick-import",
+            data={"url": "https://www.pixiv.net/artworks/123", "token": token},
+        )
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("已入库", resp.text)
-        mock_intake.assert_called_once_with(123)
+        self.assertIn("爬虫", resp.text)
+        self.assertIn("/discover", resp.text)
 
     def test_aitag_quick_import_is_two_step_with_chooser(self):
         client = self._client()

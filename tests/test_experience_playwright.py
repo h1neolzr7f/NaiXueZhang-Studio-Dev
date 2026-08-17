@@ -100,6 +100,20 @@ class ExperiencePlaywrightTests(unittest.TestCase):
                 page.wait_for_selector("#experienceShell", timeout=8000)
                 page.screenshot(path=str(out / "studio.png"), full_page=False)
 
+                page.goto(base + "/discover", wait_until="domcontentloaded")
+                page.wait_for_selector("[data-pixiv-live]", timeout=8000)
+                page.screenshot(path=str(out / "discover.png"), full_page=False)
+
+                page.goto(base + "/library", wait_until="domcontentloaded")
+                page.wait_for_selector("[data-grid]", timeout=8000)
+                page.wait_for_selector("[data-detail]", timeout=8000)
+                page.screenshot(path=str(out / "library-desk.png"), full_page=False)
+
+                page.goto(base + "/generate", wait_until="domcontentloaded")
+                page.wait_for_selector("[data-start]", timeout=8000)
+                page.wait_for_selector("[data-results]", timeout=8000)
+                page.screenshot(path=str(out / "generate-desk.png"), full_page=False)
+
                 page.goto(base + "/butler", wait_until="domcontentloaded")
                 page.wait_for_timeout(800)
                 self.assertEqual(page.locator("#experienceShell").count(), 0)

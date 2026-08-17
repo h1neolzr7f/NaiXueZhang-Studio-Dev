@@ -368,6 +368,9 @@ body.experience-shell-on .responsibility-notice {
 .ex-status b { color: var(--ex-green); font-weight: 600; }
 
 .ex-page { max-width: 1380px; margin: 0 auto; padding: 20px 22px 28px; }
+/* author display rules (e.g. .ex-actions flex) beat the UA [hidden] rule;
+   restore the expected hide behavior inside experience pages */
+.ex-page [hidden] { display: none !important; }
 .ex-hello { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 16px; }
 .ex-hello h1 { margin: 0 0 6px; font-size: 34px; letter-spacing: 0.01em; }
 .ex-hello p { margin: 0; color: var(--ex-muted); }

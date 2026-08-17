@@ -102,11 +102,11 @@
     el.textContent = text;
     el.classList.toggle("is-on", Boolean(on));
   }
-  async function refreshPixivLive() {
+  let pixivLiveEventAt = 0;
+  function renderPixivLive(payload) {
     const box = document.querySelector("[data-pixiv-live]");
-    if (!box || !window.ApiClient) return;
-    try {
-      const payload = await window.ApiClient.get("/api/crawler/pixiv/report");
+    if (!box) return;
+    {
       const report = payload.report || {};
       const process = payload.process || {};
       const running = Boolean(process.running);
@@ -146,6 +146,17 @@
         }
         note.textContent = bits.length ? bits.join("；") : (running ? "正在按任务采集，计数会自己涨。" : "进度留在本页，不用去别处看。");
       }
+    }
+  }
+  // pixiv-intake-control.js polls the same report every 5s on this page and
+  // fans it out via "pixiv-intake-report"; only fetch directly when that
+  // feed is absent, so the page never double-polls the crawler report.
+  async function refreshPixivLive() {
+    if (!window.ApiClient) return;
+    if (Date.now() - pixivLiveEventAt < 8000) return;
+    try {
+      const payload = await window.ApiClient.get("/api/crawler/pixiv/report");
+      renderPixivLive(payload || {});
     } catch (_) {
       setLiveChip("[data-pixiv-live-process]", "状态暂时读不到");
     }
@@ -340,6 +351,9 @@
       </div>
       <p class="ex-empty" data-detail-msg></p>
     `;
+    body.querySelectorAll(".ex-detail-grid img").forEach((img) => {
+      img.addEventListener("error", () => { img.style.visibility = "hidden"; }, { once: true });
+    });
     const msg = body.querySelector("[data-detail-msg]");
     body.querySelector("[data-detail-import]")?.addEventListener("click", async (event) => {
       event.currentTarget.disabled = true;
@@ -474,6 +488,10 @@
       if (event.key === "Escape") closeDetail();
     });
     guardPixivStart();
+    window.addEventListener("pixiv-intake-report", (event) => {
+      pixivLiveEventAt = Date.now();
+      renderPixivLive((event && event.detail) || {});
+    });
     renderAitag();
     void refreshStates();
     void refreshPixivLive();

@@ -69,6 +69,11 @@
       return false;
     }
   }
+  function clearWorkBridge() {
+    try {
+      window.sessionStorage.removeItem((window.WorkBridge && window.WorkBridge.KEY) || "aitag.workBridge");
+    } catch (_) { /* ignore */ }
+  }
   function buildStudioHandoff(draft) {
     const item = draft || collectDraft();
     if (item.from) {
@@ -78,6 +83,9 @@
       return studio.pathname + studio.search;
     }
     writeStudioDraft(item);
+    // /studio boot order is URL from > WorkBridge > local draft; a stale
+    // bridge from earlier gallery clicks would shadow this fresh draft.
+    clearWorkBridge();
     return "/studio";
   }
   function applyDraft(draft) {
@@ -108,13 +116,26 @@
       return;
     }
     const gid = String(query.get("gallery") || query.get("gallery_id") || readDraft().gallery || "site");
+    let text = "将导入来源作品 #" + from + " 的咒语与参数；到工作台后可继续编辑";
     try {
       const lite = await window.ApiClient.get("/api/work/" + encodeURIComponent(from) + "/lite?gallery_id=" + encodeURIComponent(gid));
       const title = String((lite && lite.title) || "作品 " + from);
-      source.textContent = "将导入来源作品 #" + from + "（" + title + "）的咒语与参数；到工作台后可继续编辑";
-    } catch (_) {
-      source.textContent = "将导入来源作品 #" + from + " 的咒语与参数；到工作台后可继续编辑";
-    }
+      text = "将导入来源作品 #" + from + "（" + title + "）的咒语与参数；到工作台后可继续编辑";
+    } catch (_) { /* keep generic text */ }
+    source.textContent = text + " ";
+    const clear = document.createElement("a");
+    clear.href = "/generate";
+    clear.textContent = "清除来源";
+    clear.style.color = "var(--ex-cyan, #5ce1ff)";
+    clear.addEventListener("click", (event) => {
+      event.preventDefault();
+      const draft = readDraft();
+      delete draft.from;
+      writeDraft(draft);
+      clearWorkBridge();
+      window.location.href = "/generate";
+    });
+    source.appendChild(clear);
   }
   function draftComment() {
     const item = collectDraft();
@@ -253,11 +274,21 @@
     }).join("");
   }
   async function loadStudioQueue() {
+    const status = document.querySelector("[data-queue-status]");
     try {
       const data = await window.ApiClient.get("/api/studio/queue?limit=12");
-      renderStudioQueue((data && data.items) || []);
+      const items = (data && data.items) || [];
+      renderStudioQueue(items);
+      if (!items.length && status) {
+        try {
+          const all = await window.ApiClient.get("/api/queue");
+          const elsewhere = ((all && all.refs) || []).filter((ref) => ref.gallery_id !== "site").length;
+          if (elsewhere) {
+            status.textContent = "本机图库的待生成是空的；另有 " + elsewhere + " 项在自选库/QQ 群库，去「我的图库」切到对应库查看。";
+          }
+        } catch (_) { /* keep default empty text */ }
+      }
     } catch (_) {
-      const status = document.querySelector("[data-queue-status]");
       if (status) status.textContent = "待生成队列暂时读不到。";
     }
   }

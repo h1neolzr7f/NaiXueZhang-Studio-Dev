@@ -507,6 +507,7 @@
     if ($("studioSteps")) $("studioSteps").value = p.steps || 28;
     if ($("studioScale")) $("studioScale").value = p.scale != null ? p.scale : 5;
     if ($("studioSeed")) $("studioSeed").value = p.seed != null && p.seed !== "" ? String(p.seed) : "";
+    if ($("studioBatchCount") && p.batch) $("studioBatchCount").value = String(p.batch);
     if ($("studioSampler")) {
       const s = p.sampler || "k_euler_ancestral";
       if (![...$("studioSampler").options].some((o) => o.value === s)) {

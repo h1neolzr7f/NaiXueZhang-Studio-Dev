@@ -174,6 +174,26 @@ class ExperienceUiTests(unittest.TestCase):
         self.assertIn("ex-portrait-fallback", js)
         self.assertIn(".ex-portrait-fallback", css)
 
+    def test_hidden_attribute_survives_author_display_rules(self) -> None:
+        css = (ROOT / "web" / "shared" / "experience-rail.css").read_text(encoding="utf-8")
+        self.assertIn(".ex-page [hidden]", css)
+
+    def test_studio_draft_restores_batch_count(self) -> None:
+        js = (ROOT / "web" / "studio.js").read_text(encoding="utf-8")
+        self.assertIn('if ($("studioBatchCount") && p.batch)', js)
+
+    def test_dupe_review_reset_and_single_poll_feed(self) -> None:
+        lib = (ROOT / "web" / "library-desk.js").read_text(encoding="utf-8")
+        self.assertIn("data-dupe-reset", lib)
+        self.assertIn("resetReviewedDupes", lib)
+        control = (ROOT / "web" / "pixiv-intake-control.js").read_text(encoding="utf-8")
+        self.assertIn("pixiv-intake-report", control)
+        discover = (ROOT / "web" / "discover.js").read_text(encoding="utf-8")
+        self.assertIn("pixiv-intake-report", discover)
+        self.assertIn("pixivLiveEventAt", discover)
+        generate = (ROOT / "web" / "generate-desk.js").read_text(encoding="utf-8")
+        self.assertIn('ref.gallery_id !== "site"', generate)
+
     def test_http_snapshot_and_manifests(self) -> None:
         import server
 

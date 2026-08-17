@@ -102,6 +102,13 @@
     } catch (_) { /* ignore */ }
     renderDupes();
   }
+  function resetReviewedDupes() {
+    state.reviewedDupes.clear();
+    try {
+      window.localStorage.removeItem(DUPE_REVIEW_KEY + ":" + galleryId());
+    } catch (_) { /* ignore */ }
+    renderDupes();
+  }
   async function buildIndex(noteSelector) {
     const gid = galleryId();
     const note = noteSelector ? document.querySelector(noteSelector) : null;
@@ -219,6 +226,9 @@
     }
     const pending = rows.filter((group, index) => !state.reviewedDupes.has(dupeGroupKey(group, index)));
     const reviewedCount = rows.length - pending.length;
+    const reviewedLine = reviewedCount
+      ? `<p class="ex-empty">已收起 ${reviewedCount} 组看过的（本机会记住）。<button class="ex-btn" type="button" data-dupe-reset>重新查看</button></p>`
+      : "";
     host.innerHTML = head + pending.map((group, index) => {
       const members = (group.items || []).map((member) => {
         const wid = String(member.work_id);
@@ -229,7 +239,7 @@
         </span>`;
       }).join("");
       return `<div class="ex-step"><b>第 ${index + 1} 组 · ${(group.items || []).length} 张${group.kind === "near" ? " · 近似" : ""}</b><div class="ex-actions">${members}</div><div class="ex-actions"><button class="ex-btn" type="button" data-dupe-reviewed="${escapeText(dupeGroupKey(group, index))}">已看完，收起</button></div></div>`;
-    }).join("") + (reviewedCount ? `<p class="ex-empty">已收起 ${reviewedCount} 组看过的。刷新或换库可重新查看。</p>` : "");
+    }).join("") + reviewedLine;
   }
   function similarHtml(rows) {
     if (!rows.length) return '<p class="ex-empty">没有找到相似作品。</p>';
@@ -264,16 +274,15 @@
         host.innerHTML = '<p class="ex-empty">没有找到相似作品。索引越全，结果越多。</p>';
         return;
       }
-      const hydrated = [];
-      for (const row of rows.slice(0, 12)) {
+      const hydrated = await Promise.all(rows.slice(0, 12).map(async (row) => {
         try {
           const lite = await window.ApiClient.get("/api/work/" + encodeURIComponent(String(row.work_id)) + "/lite?gallery_id=" + encodeURIComponent(gid));
           const work = (lite && (lite.work || lite)) || {};
-          hydrated.push(Object.assign({ gallery_id: gid, distance: row.distance }, work, { id: work.id != null ? work.id : row.work_id }));
+          return Object.assign({ gallery_id: gid, distance: row.distance }, work, { id: work.id != null ? work.id : row.work_id });
         } catch (_) {
-          hydrated.push({ id: row.work_id, gallery_id: gid, distance: row.distance, title: "作品 " + row.work_id });
+          return { id: row.work_id, gallery_id: gid, distance: row.distance, title: "作品 " + row.work_id };
         }
-      }
+      }));
       host.innerHTML = similarHtml(hydrated);
     } catch (error) {
       host.innerHTML = '<p class="ex-empty">相似查询失败：' + escapeText(error.message || error) + "</p>";
@@ -330,6 +339,9 @@
       </div>
       <div data-similar-host></div>
     `;
+    host.querySelectorAll(".ex-detail-grid img").forEach((img) => {
+      img.addEventListener("error", () => { img.style.visibility = "hidden"; }, { once: true });
+    });
     const favBtn = host.querySelector("[data-detail-fav]");
     const queueBtn = host.querySelector("[data-detail-queue]");
     async function syncToggles() {
@@ -570,6 +582,10 @@
       const reviewedBtn = event.target.closest("[data-dupe-reviewed]");
       if (reviewedBtn) {
         markDupeReviewed(reviewedBtn.getAttribute("data-dupe-reviewed"));
+        return;
+      }
+      if (event.target.closest("[data-dupe-reset]")) {
+        resetReviewedDupes();
         return;
       }
       const keepBtn = event.target.closest("[data-dupe-keep]");

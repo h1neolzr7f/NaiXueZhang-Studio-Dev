@@ -38,10 +38,10 @@
   function writeStudioDraft(item) {
     const payload = {
       draftId: "",
-      workId: 0,
+      workId: item.from || 0,
       pageIndex: 0,
-      sourceKind: "",
-      source: { provider: "" },
+      sourceKind: item.from ? "generate-desk" : "",
+      source: { provider: item.from ? "generate-desk" : "" },
       texts: {
         prompt: String(item.prompt || "").trim(),
         base_caption: "",
@@ -60,6 +60,8 @@
       refs: { vibe: "", char: "", strength: "0.6" },
       comment: null,
       pages: [],
+      overlayAfterImport: Boolean(item.from),
+      overlayWorkId: String(item.from || ""),
       ts: Date.now(),
     };
     try {
@@ -76,13 +78,13 @@
   }
   function buildStudioHandoff(draft) {
     const item = draft || collectDraft();
+    writeStudioDraft(item);
     if (item.from) {
       const studio = new URL("/studio", window.location.origin);
       studio.searchParams.set("from", item.from);
       studio.searchParams.set("gallery", item.gallery || "site");
       return studio.pathname + studio.search;
     }
-    writeStudioDraft(item);
     // /studio boot order is URL from > WorkBridge > local draft; a stale
     // bridge from earlier gallery clicks would shadow this fresh draft.
     clearWorkBridge();
@@ -104,6 +106,8 @@
     if (seed && item.seed) seed.value = item.seed;
     if (sampler && item.sampler) sampler.value = item.sampler;
     if (size && item.width && item.height) size.value = item.width + "x" + item.height;
+    const batch = document.querySelector("[data-batch]");
+    if (batch && item.batch) batch.value = item.batch;
     bindCounts();
   }
   async function fillSourceCard() {
@@ -254,6 +258,9 @@
       renderJob((data && data.job) || null);
     } catch (_) { /* keep last */ }
   }
+  function galleryLabel(gid) {
+    return { site: "本机", codex: "自选", qqgroup: "QQ群" }[String(gid || "site")] || String(gid || "site");
+  }
   function renderStudioQueue(items) {
     const host = document.querySelector("[data-studio-queue]");
     const status = document.querySelector("[data-queue-status]");
@@ -263,31 +270,44 @@
       if (status) status.textContent = "待生成队列是空的。在图库详情里点「加入待生成」。";
       return;
     }
-    if (status) status.textContent = "待生成 " + items.length + " 项 · 点卡片带进完整工作台";
+    if (status) status.textContent = "待生成 " + items.length + " 项（含跨库）· 点卡片带进完整工作台";
     host.innerHTML = items.map((item) => {
       const thumb = item.thumb || "";
       const wid = String(item.work_id || "");
-      return `<article class="ex-card" data-queue-open="${escapeText(wid)}" title="带进完整工作台">
+      const gid = String(item.gallery_id || "site");
+      return `<article class="ex-card" data-queue-open="${escapeText(wid)}" data-queue-gallery="${escapeText(gid)}" title="带进完整工作台">
         ${thumb ? `<img src="${escapeText(thumb)}" alt="" loading="lazy" />` : `<div class="ex-ph"></div>`}
-        <div class="ex-meta"><strong>${escapeText(item.title || ("作品 " + wid))}</strong></div>
+        <div class="ex-meta"><strong>${escapeText(item.title || ("作品 " + wid))}</strong><small>${escapeText(galleryLabel(gid))}</small></div>
       </article>`;
     }).join("");
   }
   async function loadStudioQueue() {
     const status = document.querySelector("[data-queue-status]");
     try {
-      const data = await window.ApiClient.get("/api/studio/queue?limit=12");
-      const items = (data && data.items) || [];
-      renderStudioQueue(items);
-      if (!items.length && status) {
-        try {
-          const all = await window.ApiClient.get("/api/queue");
-          const elsewhere = ((all && all.refs) || []).filter((ref) => ref.gallery_id !== "site").length;
-          if (elsewhere) {
-            status.textContent = "本机图库的待生成是空的；另有 " + elsewhere + " 项在自选库/QQ 群库，去「我的图库」切到对应库查看。";
+      const all = await window.ApiClient.get("/api/queue");
+      const refs = ((all && all.refs) || []).slice(0, 12);
+      if (refs.length) {
+        const items = await Promise.all(refs.map(async (ref) => {
+          const gid = ref.gallery_id || "site";
+          const wid = ref.work_id;
+          try {
+            const lite = await window.ApiClient.get("/api/work/" + encodeURIComponent(wid) + "/lite?gallery_id=" + encodeURIComponent(gid));
+            const work = (lite && (lite.work || lite)) || {};
+            return {
+              work_id: wid,
+              gallery_id: gid,
+              title: work.title || ("作品 " + wid),
+              thumb: work.cover_url || work.thumbnail_url || work.thumb_url || "",
+            };
+          } catch (_) {
+            return { work_id: wid, gallery_id: gid, title: "作品 " + wid, thumb: "" };
           }
-        } catch (_) { /* keep default empty text */ }
+        }));
+        renderStudioQueue(items);
+        return;
       }
+      const data = await window.ApiClient.get("/api/studio/queue?limit=12");
+      renderStudioQueue((data && data.items) || []);
     } catch (_) {
       if (status) status.textContent = "待生成队列暂时读不到。";
     }
@@ -451,9 +471,16 @@
       const card = event.target.closest("[data-queue-open]");
       if (!card) return;
       const wid = card.getAttribute("data-queue-open");
-      if (window.WorkBridge) window.WorkBridge.save({ workId: wid, galleryId: "site", from: "generate" });
-      window.location.href = "/studio?from=" + encodeURIComponent(wid) + "&gallery=site";
+      const gid = card.getAttribute("data-queue-gallery") || "site";
+      if (window.WorkBridge) window.WorkBridge.save({ workId: wid, galleryId: gid, from: "generate" });
+      window.location.href = "/studio?from=" + encodeURIComponent(wid) + "&gallery=" + encodeURIComponent(gid);
     });
+    void window.ApiClient.get("/api/product/health").then((health) => {
+      const online = document.querySelector("[data-online]");
+      if (!online) return;
+      const ok = !health || !health.health || health.health.ok !== false;
+      online.textContent = ok ? "● 本机服务正常" : "● 需要查看维护台";
+    }).catch(() => { /* keep default */ });
     window.addEventListener("experience-snapshot", (event) => renderTimeline(event.detail || {}));
     window.ApiClient.get("/api/experience/snapshot").then(renderTimeline).catch(() => renderTimeline({}));
     void loadResults();

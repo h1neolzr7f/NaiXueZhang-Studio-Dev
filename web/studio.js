@@ -906,6 +906,19 @@
     }
   }
 
+  function overlayGenerateDeskDraft(workId) {
+    const draft = restoreDraftLocal();
+    if (!draft || !draft.overlayAfterImport) return false;
+    const draftWork = String(draft.overlayWorkId || draft.workId || "");
+    const imported = String(workId || "");
+    if (draftWork && imported && draftWork !== imported) return false;
+    if (draft.texts) applyTextsToForm(draft.texts);
+    if (draft.params) fillParams(draft.params);
+    try { saveDraftLocal(); } catch (_) { /* keep overlaid form even if cache is full */ }
+    setStatus("已叠加上生成台改过的咒语和参数", true, true);
+    return true;
+  }
+
   async function onGenerate() {
     if (state.generating) return;
     const texts = textsFromForm();
@@ -1179,6 +1192,7 @@
     } else if (workId) {
       try {
         await loadImport(workId, pageIndex);
+        overlayGenerateDeskDraft(workId);
       } catch (e) {
         setStatus(String(e.message || e), false);
       }

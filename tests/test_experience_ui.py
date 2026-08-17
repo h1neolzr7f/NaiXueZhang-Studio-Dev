@@ -141,6 +141,39 @@ class ExperienceUiTests(unittest.TestCase):
         self.assertEqual(page.status_code, 200)
         self.assertIn('data-page="generate"', page.text)
 
+    def test_library_batch_and_dupe_curation_design(self) -> None:
+        html = (ROOT / "web" / "library.html").read_text(encoding="utf-8")
+        js = (ROOT / "web" / "library-desk.js").read_text(encoding="utf-8")
+        self.assertIn('data-batch-actions', html)
+        self.assertIn('data-batch-fav', html)
+        self.assertIn('data-batch-queue', html)
+        self.assertIn('data-single-actions', html)
+        self.assertIn("data-batch-toggle", js)
+        self.assertIn("data-dupe-keep", js)
+        self.assertIn("data-dupe-use", js)
+        self.assertIn("data-dupe-reviewed", js)
+        self.assertIn("data-build-index", js)
+        self.assertIn("/index/incremental", js)
+        self.assertIn("nxzDupesReviewed", js)
+        self.assertNotIn("点下面「建立索引」后再试", js)
+
+    def test_generate_desk_gates_optimize_on_ai_key(self) -> None:
+        js = (ROOT / "web" / "generate-desk.js").read_text(encoding="utf-8")
+        self.assertIn("/api/settings/status", js)
+        self.assertIn("has_api_key", js)
+        self.assertIn("gatePromptTools", js)
+
+    def test_experience_portraits_exist_and_degrade_gracefully(self) -> None:
+        js = (ROOT / "web" / "shared" / "experience-rail.js").read_text(encoding="utf-8")
+        css = (ROOT / "web" / "shared" / "experience-rail.css").read_text(encoding="utf-8")
+        for name in ("acquire", "library", "studio", "support", "avatar", "mascot"):
+            path = ROOT / "web" / "experience-portraits" / f"{name}.png"
+            self.assertTrue(path.is_file(), f"missing portrait asset {name}.png")
+            self.assertGreater(path.stat().st_size, 10_000)
+        self.assertIn("guardPortraitImages", js)
+        self.assertIn("ex-portrait-fallback", js)
+        self.assertIn(".ex-portrait-fallback", css)
+
     def test_http_snapshot_and_manifests(self) -> None:
         import server
 

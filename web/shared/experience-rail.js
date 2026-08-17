@@ -264,6 +264,22 @@
     }
     body.innerHTML = bits.join("");
   }
+  function guardPortraitImages() {
+    root.querySelectorAll("img").forEach((img) => {
+      const swap = () => {
+        const label = (root.querySelector("[data-agent-name]") || {}).textContent || "N";
+        const fallback = document.createElement("span");
+        fallback.className = "ex-portrait-fallback";
+        fallback.textContent = (img.classList.contains("ex-avatar-img") ? "N" : label).trim().slice(0, 1) || "N";
+        img.replaceWith(fallback);
+      };
+      if (img.complete && img.naturalWidth === 0 && img.src) {
+        swap();
+        return;
+      }
+      img.addEventListener("error", swap, { once: true });
+    });
+  }
   function renderSession() {
     const mins = Math.max(1, Math.round((Date.now() - started) / 60000));
     const hours = Math.floor(mins / 60);
@@ -386,6 +402,7 @@
     });
   }
   renderNav();
+  guardPortraitImages();
   enhanceClassicSurfaces();
   void refresh();
   window.setInterval(() => {

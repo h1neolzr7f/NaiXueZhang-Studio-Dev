@@ -139,8 +139,27 @@
     if (uc && texts.uc != null) uc.value = texts.uc;
     bindCounts();
   }
+  let aiKeyReady = null;
+  async function gatePromptTools() {
+    const optimize = document.querySelector("[data-optimize]");
+    try {
+      const status = await window.ApiClient.get("/api/settings/status");
+      aiKeyReady = Boolean(status && status.ai && status.ai.has_api_key);
+    } catch (_) {
+      aiKeyReady = null;
+      return;
+    }
+    if (optimize && aiKeyReady === false) {
+      optimize.textContent = "智能优化（需管家模型 Key）";
+      optimize.title = "先在「设置」里保存管家模型 Key，再用智能优化";
+    }
+  }
   async function runPromptTool(kind) {
     const status = document.querySelector("[data-gen-status]");
+    if (kind === "optimize" && aiKeyReady === false) {
+      if (status) status.textContent = "还没配管家模型 Key。去「设置 → 助手服务」保存后再用智能优化；「清洗风险词」是本机规则，可直接用。";
+      return;
+    }
     const prompt = String((document.querySelector("[data-prompt]") || {}).value || "").trim();
     if (!prompt) {
       if (status) status.textContent = "先写点正向提示词，再" + (kind === "optimize" ? "优化。" : "清洗。");
@@ -382,6 +401,7 @@
     });
     bindCounts();
     void loadStudioOptions().then(() => applyDraft(draft));
+    void gatePromptTools();
     void fillSourceCard();
     document.querySelector("[data-start]").addEventListener("click", () => { void startGenerate(); });
     document.querySelector("[data-optimize]").addEventListener("click", () => { void runPromptTool("optimize"); });

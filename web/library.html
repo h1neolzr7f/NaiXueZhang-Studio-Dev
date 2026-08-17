@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>我的图库 · Nai学长工作室</title>
   <link rel="stylesheet" href="/assets/shared/site-nav.css?v=756cdf2a38" />
-  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=0134f627cf" />
+  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=1b346283e5" />
   <link rel="stylesheet" href="/assets/studio-theme.css?v=51de05869a" />
 </head>
 <body data-page="library">
@@ -65,7 +65,12 @@
         <p class="ex-empty" data-status></p>
         <div class="ex-select-bar">
           <span data-picked>未选择资产</span>
-          <div class="ex-actions">
+          <div class="ex-actions" data-batch-actions hidden>
+            <button class="ex-btn" type="button" data-batch-fav>收藏所选</button>
+            <button class="ex-btn" type="button" data-batch-queue>待生成所选</button>
+            <button class="ex-btn" type="button" data-batch-clear>清空选择</button>
+          </div>
+          <div class="ex-actions" data-single-actions>
             <button class="ex-btn" type="button" data-fav-toggle>收藏</button>
             <button class="ex-btn" type="button" data-queue-toggle>加入待生成</button>
             <a class="ex-btn" data-remix href="/remix">换角色</a>
@@ -82,6 +87,6 @@
   <script src="/assets/shared/api-client.js?v=2a8a70c746"></script>
   <script src="/assets/shared/work-bridge.js?v=e03f149e05"></script>
   <script src="/assets/shared/site-nav.js?v=3846bb4a62"></script>
-  <script src="/assets/library-desk.js?v=f4be88f70e"></script>
+  <script src="/assets/library-desk.js?v=378083f890"></script>
 </body>
 </html>

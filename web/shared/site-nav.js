@@ -254,12 +254,12 @@
     if (!document.querySelector("link[data-experience-rail]")) {
       const css = document.createElement("link");
       css.rel = "stylesheet";
-      css.href = "/assets/shared/experience-rail.css?v=0134f627cf";
+      css.href = "/assets/shared/experience-rail.css?v=1b346283e5";
       css.dataset.experienceRail = "1";
       document.head.appendChild(css);
     }
     const script = document.createElement("script");
-    script.src = "/assets/shared/experience-rail.js?v=54813882fe";
+    script.src = "/assets/shared/experience-rail.js?v=d2caca9d4c";
     script.dataset.experienceRail = "1";
     script.async = true;
     document.head.appendChild(script);

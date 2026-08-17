@@ -14,20 +14,31 @@
       .replace(/>/g, "&gt;");
   }
 
+  let lastCardKey = "";
   function renderCards(specialists, events) {
     const host = document.querySelector("[data-agent-cards]");
     if (!host) return;
     const busy = String((events[events.length - 1] || {}).agent_id || "");
+    const key = (specialists || []).map((item) => item.persona_id).join(",") + "|" + busy;
+    if (key === lastCardKey) return;
+    lastCardKey = key;
     host.innerHTML = (specialists || []).map((item) => {
       const tone = item.persona_id || "library";
+      const photoTone = tone === "service" ? "support" : tone;
       const running = busy && (busy === item.persona_id || (item.persona_id === "service" && busy === "sakiko"));
       return `<a class="ex-agent-card${running ? " is-busy" : ""}" data-tone="${escapeText(tone)}" href="${escapeText(item.workspace_href || "/")}">
         <em>${running ? "运行中" : "在线"}</em>
-        <div class="ex-face">${escapeText(item.short_name || "").slice(0, 1)}</div>
-        <strong>${escapeText(item.display_name)}</strong>
-        <small>${escapeText(item.role)}</small>
+        <img class="ex-card-photo" src="/assets/experience-portraits/${escapeText(photoTone)}.png" alt="" loading="lazy" />
+        <div class="ex-card-body">
+          <strong>${escapeText(item.display_name)}</strong>
+          <small>${escapeText(item.role)}</small>
+          <span class="ex-card-go">进入 →</span>
+        </div>
       </a>`;
     }).join("");
+    host.querySelectorAll("img.ex-card-photo").forEach((img) => {
+      img.addEventListener("error", () => { img.remove(); }, { once: true });
+    });
   }
 
   function renderTasks(events) {

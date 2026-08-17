@@ -618,6 +618,11 @@ details.ex-advanced summary { cursor: pointer; color: var(--ex-muted); }
   cursor: pointer;
 }
 .ex-card.is-on { box-shadow: 0 0 0 2px #3b82f6, 0 0 22px rgba(59,130,246,0.35); }
+.ex-card.is-batch { box-shadow: 0 0 0 2px #3ee0a2, 0 0 18px rgba(62,224,162,0.28); }
+.ex-card.is-batch .ex-hover { display: flex; }
+.ex-card.is-batch .ex-hover button { background: #3ee0a2; color: #06251a; font-weight: 700; }
+.ex-dupe-member { display: inline-flex; gap: 4px; align-items: center; }
+.ex-dupe-member .ex-btn { padding: 5px 10px; font-size: 12px; }
 .ex-card img, .ex-card .ex-ph {
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -718,6 +723,20 @@ details.ex-advanced summary { cursor: pointer; color: var(--ex-muted); }
 }
 .ex-modal-head h3 { margin: 0; font-size: 16px; }
 .ex-modal-body { padding: 14px 16px 18px; }
+.ex-portrait-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #1d2a4a, #10182a);
+  color: var(--ex-cyan);
+  font-weight: 800;
+  font-size: 22px;
+}
+.ex-profile .ex-portrait-fallback { width: 28px; height: 28px; min-height: 0; border-radius: 50%; font-size: 13px; }
+.ex-mascot-rail .ex-portrait-fallback { min-height: 120px; background: none; font-size: 40px; }
 .ex-modal-body p { color: #c9d4ea; }
 .ex-detail-grid {
   display: grid;

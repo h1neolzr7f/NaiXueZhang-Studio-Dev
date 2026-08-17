@@ -6,9 +6,12 @@
     hasMore: false,
     items: [],
     selected: null,
+    batch: new Set(),
     dupes: [],
     dupeKind: "exact",
+    reviewedDupes: new Set(),
   };
+  const DUPE_REVIEW_KEY = "nxzDupesReviewed";
 
   function escapeText(value) {
     return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -74,7 +77,45 @@
   }
   function setPicked() {
     const picked = document.querySelector("[data-picked]");
-    if (picked) picked.textContent = state.selected ? "已选择 1 项" : "未选择资产";
+    if (picked) {
+      picked.textContent = state.batch.size
+        ? "已批量选择 " + state.batch.size + " 项"
+        : state.selected ? "已选择 1 项" : "未选择资产";
+    }
+    const batchBar = document.querySelector("[data-batch-actions]");
+    if (batchBar) batchBar.hidden = state.batch.size === 0;
+    const singleBar = document.querySelector("[data-single-actions]");
+    if (singleBar) singleBar.hidden = state.batch.size > 0;
+  }
+  function loadReviewedDupes() {
+    try {
+      const raw = window.localStorage.getItem(DUPE_REVIEW_KEY + ":" + galleryId());
+      state.reviewedDupes = new Set(raw ? JSON.parse(raw) : []);
+    } catch (_) {
+      state.reviewedDupes = new Set();
+    }
+  }
+  function markDupeReviewed(groupKey) {
+    state.reviewedDupes.add(groupKey);
+    try {
+      window.localStorage.setItem(DUPE_REVIEW_KEY + ":" + galleryId(), JSON.stringify(Array.from(state.reviewedDupes)));
+    } catch (_) { /* ignore */ }
+    renderDupes();
+  }
+  async function buildIndex(noteSelector) {
+    const gid = galleryId();
+    const note = noteSelector ? document.querySelector(noteSelector) : null;
+    if (note) note.textContent = "正在为本库建立相似索引…";
+    try {
+      const result = await window.ApiClient.post("/api/gallery/" + encodeURIComponent(gid) + "/index/incremental", { visual: true });
+      const done = Number(result.indexed != null ? result.indexed : (result.hashed || 0));
+      if (note) note.textContent = "索引已更新（" + done + " 张）。再点「找相似」或「查重复」。";
+      void loadRibbon();
+      return true;
+    } catch (error) {
+      if (note) note.textContent = "建索引失败：" + (error.message || error);
+      return false;
+    }
   }
 
   async function loadGalleries() {
@@ -147,13 +188,19 @@
     }
     host.innerHTML = state.items.map((item) => {
       const src = thumb(item);
-      const on = state.selected && itemId(state.selected) === itemId(item) ? " is-on" : "";
-      return `<article class="ex-card${on}" data-id="${escapeText(itemId(item))}" data-gallery="${escapeText(item.gallery_id || galleryId())}">
+      const id = itemId(item);
+      const on = state.selected && itemId(state.selected) === id ? " is-on" : "";
+      const inBatch = state.batch.has(id) ? " is-batch" : "";
+      return `<article class="ex-card${on}${inBatch}" data-id="${escapeText(id)}" data-gallery="${escapeText(item.gallery_id || galleryId())}">
         ${src ? `<img src="${escapeText(src)}" alt="" loading="lazy" />` : `<div class="ex-ph"></div>`}
         <span class="ex-check">✓</span>
-        <div class="ex-meta"><strong>${escapeText(item.title || itemId(item))}</strong><small>${escapeText(item.author || item.userName || "")} · ${escapeText(shortDate(item.create_date))}</small></div>
+        <span class="ex-hover"><button type="button" data-batch-toggle="${escapeText(id)}" title="加入/移出批量选择">${inBatch ? "✓" : "选"}</button></span>
+        <div class="ex-meta"><strong>${escapeText(item.title || id)}</strong><small>${escapeText(item.author || item.userName || "")} · ${escapeText(shortDate(item.create_date))}</small></div>
       </article>`;
     }).join("");
+  }
+  function dupeGroupKey(group, index) {
+    return String(group.sha256 || (group.items && group.items[0] && group.items[0].image_key) || "group-" + index);
   }
   function renderDupes() {
     const host = document.querySelector("[data-dupes]");
@@ -163,18 +210,26 @@
     const head = `<div class="ex-toolbar" style="margin-top:0">
       <button class="ex-tab${state.dupeKind === "exact" ? " is-on" : ""}" type="button" data-dupe-kind="exact">完全一样</button>
       <button class="ex-tab${state.dupeKind === "near" ? " is-on" : ""}" type="button" data-dupe-kind="near">看起来很像</button>
-      <span class="ex-empty">重复组来自本机索引；先去详情里「建立索引」更全</span>
+      <button class="ex-btn" type="button" data-dupe-index>更新索引</button>
+      <span class="ex-empty" data-dupe-note>重复不会自动删：挑出要留的（「留」= 收藏），其余留着不影响使用</span>
     </div>`;
     if (!rows.length) {
-      host.innerHTML = head + '<p class="ex-empty">这一库没查到重复。换个库或先建索引。</p>';
+      host.innerHTML = head + '<p class="ex-empty">这一库没查到重复。换个库，或先点「更新索引」再查。</p>';
       return;
     }
-    host.innerHTML = head + rows.map((group, index) => {
-      const members = (group.items || []).map((member) =>
-        `<button class="ex-btn" type="button" data-dupe-open="${escapeText(String(member.work_id))}">#${escapeText(String(member.work_id))} p${Number(member.page_index || 0)}</button>`
-      ).join("");
-      return `<div class="ex-step"><b>第 ${index + 1} 组 · ${(group.items || []).length} 张${group.kind === "near" ? " · 近似" : ""}</b><div class="ex-actions">${members}</div></div>`;
-    }).join("");
+    const pending = rows.filter((group, index) => !state.reviewedDupes.has(dupeGroupKey(group, index)));
+    const reviewedCount = rows.length - pending.length;
+    host.innerHTML = head + pending.map((group, index) => {
+      const members = (group.items || []).map((member) => {
+        const wid = String(member.work_id);
+        return `<span class="ex-dupe-member">
+          <button class="ex-btn" type="button" data-dupe-open="${escapeText(wid)}" title="打开详情对比">#${escapeText(wid)} p${Number(member.page_index || 0)}</button>
+          <button class="ex-btn" type="button" data-dupe-keep="${escapeText(wid)}" title="收藏这张，作为要留的">留</button>
+          <button class="ex-btn" type="button" data-dupe-use="${escapeText(wid)}" title="加入待生成队列">用</button>
+        </span>`;
+      }).join("");
+      return `<div class="ex-step"><b>第 ${index + 1} 组 · ${(group.items || []).length} 张${group.kind === "near" ? " · 近似" : ""}</b><div class="ex-actions">${members}</div><div class="ex-actions"><button class="ex-btn" type="button" data-dupe-reviewed="${escapeText(dupeGroupKey(group, index))}">已看完，收起</button></div></div>`;
+    }).join("") + (reviewedCount ? `<p class="ex-empty">已收起 ${reviewedCount} 组看过的。刷新或换库可重新查看。</p>` : "");
   }
   function similarHtml(rows) {
     if (!rows.length) return '<p class="ex-empty">没有找到相似作品。</p>';
@@ -195,7 +250,14 @@
       );
       const rows = (data && data.items) || [];
       if (!rows.length && data && data.reason === "hash_missing") {
-        host.innerHTML = '<p class="ex-empty">这张图还没进相似索引。点下面「建立索引」后再试。</p>';
+        host.innerHTML = '<p class="ex-empty">这张图还没进相似索引。</p><div class="ex-actions"><button class="ex-btn" type="button" data-build-index>建立索引</button><span class="ex-empty" data-index-note></span></div>';
+        const btn = host.querySelector("[data-build-index]");
+        if (btn) btn.addEventListener("click", async () => {
+          btn.disabled = true;
+          const ok = await buildIndex("[data-index-note]");
+          btn.disabled = false;
+          if (ok) void loadSimilarInto(host, workId, gid);
+        });
         return;
       }
       if (!rows.length) {
@@ -303,6 +365,25 @@
       similarBtn.disabled = true;
       loadSimilarInto(similarHost, id, gid).finally(() => { similarBtn.disabled = false; });
     });
+  }
+  async function batchApply(kind) {
+    const ids = Array.from(state.batch);
+    if (!ids.length) return;
+    const gid = galleryId();
+    setStatus(kind === "fav" ? "正在批量收藏…" : "正在批量加入待生成…");
+    let ok = 0;
+    for (const id of ids) {
+      try {
+        const path = kind === "fav" ? "/api/favorites/" : "/api/queue/";
+        await window.ApiClient.post(path + encodeURIComponent(id) + "?gallery_id=" + encodeURIComponent(gid), {});
+        ok += 1;
+      } catch (_) { /* keep going */ }
+    }
+    setStatus((kind === "fav" ? "已收藏 " : "已加入待生成 ") + ok + " 项。");
+    state.batch.clear();
+    setPicked();
+    renderGrid();
+    void loadRibbon();
   }
   function selectedHref(kindName) {
     if (!state.selected) return kindName === "remix" ? "/remix" : "/studio";
@@ -444,6 +525,9 @@
     const gallery = document.querySelector("[data-gallery]");
     if (gallery) gallery.addEventListener("change", () => {
       state.selected = null;
+      state.batch.clear();
+      setPicked();
+      loadReviewedDupes();
       renderDetail(null);
       void loadGroups().then(() => switchView(state.view));
     });
@@ -454,6 +538,16 @@
       if (state.hasMore && state.view !== "dupes") void search(state.page + 1, true);
     });
     document.querySelector("[data-grid]").addEventListener("click", (event) => {
+      const batchBtn = event.target.closest("[data-batch-toggle]");
+      if (batchBtn) {
+        event.stopPropagation();
+        const id = batchBtn.getAttribute("data-batch-toggle");
+        if (state.batch.has(id)) state.batch.delete(id);
+        else state.batch.add(id);
+        setPicked();
+        renderGrid();
+        return;
+      }
       const card = event.target.closest("[data-id]");
       if (!card) return;
       const item = state.items.find((row) => itemId(row) === card.getAttribute("data-id"));
@@ -461,11 +555,41 @@
       void renderDetail(item);
       renderGrid();
     });
-    document.querySelector("[data-dupes]").addEventListener("click", (event) => {
+    document.querySelector("[data-dupes]").addEventListener("click", async (event) => {
       const kindBtn = event.target.closest("[data-dupe-kind]");
       if (kindBtn) {
         state.dupeKind = kindBtn.getAttribute("data-dupe-kind") === "near" ? "near" : "exact";
         void loadDupes();
+        return;
+      }
+      if (event.target.closest("[data-dupe-index]")) {
+        await buildIndex("[data-dupe-note]");
+        void loadDupes();
+        return;
+      }
+      const reviewedBtn = event.target.closest("[data-dupe-reviewed]");
+      if (reviewedBtn) {
+        markDupeReviewed(reviewedBtn.getAttribute("data-dupe-reviewed"));
+        return;
+      }
+      const keepBtn = event.target.closest("[data-dupe-keep]");
+      if (keepBtn) {
+        keepBtn.disabled = true;
+        try {
+          await window.ApiClient.post("/api/favorites/" + encodeURIComponent(keepBtn.getAttribute("data-dupe-keep")) + "?gallery_id=" + encodeURIComponent(galleryId()), {});
+          keepBtn.textContent = "已留";
+          void loadRibbon();
+        } catch (_) { keepBtn.textContent = "失败"; }
+        return;
+      }
+      const useBtn = event.target.closest("[data-dupe-use]");
+      if (useBtn) {
+        useBtn.disabled = true;
+        try {
+          await window.ApiClient.post("/api/queue/" + encodeURIComponent(useBtn.getAttribute("data-dupe-use")) + "?gallery_id=" + encodeURIComponent(galleryId()), {});
+          useBtn.textContent = "已入队";
+          void loadRibbon();
+        } catch (_) { useBtn.textContent = "失败"; }
         return;
       }
       const openBtn = event.target.closest("[data-dupe-open]");
@@ -506,6 +630,13 @@
       void renderDetail(state.selected);
       void loadRibbon();
     });
+    document.querySelector("[data-batch-fav]").addEventListener("click", () => { void batchApply("fav"); });
+    document.querySelector("[data-batch-queue]").addEventListener("click", () => { void batchApply("queue"); });
+    document.querySelector("[data-batch-clear]").addEventListener("click", () => {
+      state.batch.clear();
+      setPicked();
+      renderGrid();
+    });
     document.querySelector("[data-use]").addEventListener("click", (event) => {
       event.preventDefault();
       if (!state.selected) {
@@ -519,6 +650,7 @@
       event.preventDefault();
       window.location.href = selectedHref("remix");
     });
+    loadReviewedDupes();
     void loadGalleries().then(() => {
       const query2 = new URLSearchParams(window.location.search || "");
       const wanted = query2.get("gallery") || query2.get("gallery_id");

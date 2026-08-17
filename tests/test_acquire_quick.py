@@ -57,6 +57,15 @@ class BookmarkTokenTests(unittest.TestCase):
                 self.assertFalse(acquire_bookmark.verify_token("wrong"))
                 self.assertFalse(acquire_bookmark.verify_token(""))
 
+    def test_rotate_invalidates_old_token(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(acquire_bookmark, "TOKEN_PATH", Path(tmp) / "bookmark.json"):
+                old = acquire_bookmark.get_or_create_token()
+                new = acquire_bookmark.rotate_token()
+                self.assertNotEqual(old, new)
+                self.assertFalse(acquire_bookmark.verify_token(old))
+                self.assertTrue(acquire_bookmark.verify_token(new))
+
 
 class QuickImportRouteTests(unittest.TestCase):
     def setUp(self):

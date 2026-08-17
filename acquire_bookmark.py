@@ -47,3 +47,14 @@ def verify_token(candidate: str) -> bool:
     if not candidate:
         return False
     return hmac.compare_digest(candidate, get_or_create_token())
+
+
+def rotate_token() -> str:
+    """Issue a fresh bookmark token; existing bookmarklets stop working."""
+
+    with _LOCK:
+        token = secrets.token_urlsafe(24)
+        path = _token_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write_text(path, json.dumps({"version": 1, "token": token}, indent=2) + "\n", encoding="utf-8")
+        return token

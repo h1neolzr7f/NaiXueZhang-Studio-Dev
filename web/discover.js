@@ -585,6 +585,7 @@
       title: item.title || item.entry_id,
       path: item.path || [],
       tags: item.tags || "",
+      characters: item.characters || [],
       note: item.note || "",
       thumb: item.thumb || "",
       image: item.image || item.thumb || "",
@@ -650,6 +651,7 @@
       <p><b>法典</b> ${escapeText(item.codex_title || item.codex_id)}${place ? ` · <b>分类</b> ${escapeText(place)}` : ""}</p>
       <h4 style="margin:10px 0 4px">提示词（含 NovelAI 权重语法，原样保留）</h4>
       <pre class="ex-log" style="white-space:pre-wrap">${escapeText(item.tags || "（此词条没有提示词文本）")}</pre>
+      ${(item.characters && item.characters.length) ? `<h4 style="margin:10px 0 4px">角色槽提示词（V4 多角色）</h4>${item.characters.map((c) => `<p><b>${escapeText(c.label || "角色")}</b>：${escapeText(c.prompt)}</p>`).join("")}` : ""}
       ${item.note ? `<h4 style="margin:10px 0 4px">注释</h4><p>${escapeText(item.note)}</p>` : ""}
       <div class="ex-actions">
         <button class="ex-btn primary" type="button" data-tc-send>送到生成台</button>
@@ -733,6 +735,24 @@
               ? "书签代码已复制。手动新建一个书签，把地址粘进去即可。"
               : "复制失败。可以长按「一键入库」按钮手动复制链接。";
           });
+        });
+      }
+      const rotateBtn = document.querySelector("[data-bookmark-rotate]");
+      if (rotateBtn) {
+        rotateBtn.addEventListener("click", async () => {
+          if (!window.confirm("重置入库令牌？\n\n书签栏里旧的「一键入库」会立刻失效，需要重新拖一次。")) return;
+          rotateBtn.disabled = true;
+          try {
+            const data = await window.ApiClient.post("/api/acquire/bookmark/rotate", {});
+            const next = buildBookmarklet(String((data && data.token) || ""));
+            link.href = next;
+            link.dataset.ready = "1";
+            if (note) note.textContent = "令牌已重置。请把「一键入库」重新拖进书签栏。";
+          } catch (error) {
+            if (note) note.textContent = "重置失败：" + (error.message || error);
+          } finally {
+            rotateBtn.disabled = false;
+          }
         });
       }
     } catch (_) {

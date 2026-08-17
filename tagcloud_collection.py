@@ -81,6 +81,17 @@ def _snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     path = payload.get("path")
     if isinstance(path, (list, tuple)):
         snapshot["path"] = [str(part).strip()[:120] for part in path if str(part).strip()][:8]
+    characters = payload.get("characters")
+    if isinstance(characters, (list, tuple)):
+        clean = []
+        for item in characters[:6]:
+            if not isinstance(item, dict):
+                continue
+            prompt = str(item.get("prompt") or "").strip()[:2000]
+            if prompt:
+                clean.append({"label": str(item.get("label") or "").strip()[:60], "prompt": prompt})
+        if clean:
+            snapshot["characters"] = clean
     return snapshot
 
 

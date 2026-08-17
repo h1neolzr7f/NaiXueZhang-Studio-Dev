@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, urlparse
 from fastapi import APIRouter, Form
 from fastapi.responses import HTMLResponse
 
-from acquire_bookmark import get_or_create_token, verify_token
+from acquire_bookmark import get_or_create_token, rotate_token, verify_token
 from pixiv_quick_intake import quick_import_pixiv_work
 
 router = APIRouter()
@@ -147,6 +147,14 @@ def api_acquire_bookmark() -> dict[str, object]:
     """Same-origin read for the discover page to build the bookmarklet."""
 
     return {"ok": True, "token": get_or_create_token()}
+
+
+@router.post("/api/acquire/bookmark/rotate")
+def api_acquire_bookmark_rotate() -> dict[str, object]:
+    """Rotate the bookmark token.  Session-token middleware guards this write,
+    so only same-origin app pages can call it; old bookmarklets stop working."""
+
+    return {"ok": True, "token": rotate_token(), "message": "令牌已重置，旧书签已失效，请重新拖一次。"}
 
 
 @router.post("/acquire/quick-import", response_class=HTMLResponse)

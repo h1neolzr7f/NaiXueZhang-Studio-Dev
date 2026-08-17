@@ -62,6 +62,11 @@ _ENTRIES = {
             "title": "樱花隧道",
             "path": ["构图风格", "春"],
             "tags": "cherry blossom tunnel, 1.5::pink petals::",
+            "characterPrompts": [
+                {"label": "char1", "prompt": "1girl, pink dress"},
+                {"label": "bad", "prompt": ""},
+                "junk",
+            ],
             "isNew": True,
             "image": "composition_style_0002.jpg",
             "assetRev": "aaaa1111bbbb2222",
@@ -127,6 +132,7 @@ class TagcloudClientTests(unittest.TestCase):
             self.assertTrue(item["thumb"].startswith("https://assets.quicktagcloud.com/images/composition_style/"))
             self.assertIn("?v=aaaa1111bbbb2222", item["thumb"])
             self.assertIn("1.5::pink petals::", item["tags"])
+            self.assertEqual(item["characters"], [{"label": "char1", "prompt": "1girl, pink dress"}])
 
             unsafe = client.search(query="explicit", safe_only=True)
             self.assertEqual(unsafe["total"], 0)
@@ -184,6 +190,25 @@ class TagcloudCollectionTests(unittest.TestCase):
             with patch.object(tagcloud_collection, "COLLECTION_PATH", Path(tmp) / "collection.json"):
                 with self.assertRaises(ValueError):
                     tagcloud_collection.toggle("bad key with spaces")
+
+    def test_snapshot_keeps_character_prompts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(tagcloud_collection, "COLLECTION_PATH", Path(tmp) / "collection.json"):
+                result = tagcloud_collection.toggle(
+                    "composition_style:composition_style_0002",
+                    {
+                        "title": "樱花隧道",
+                        "tags": "x",
+                        "characters": [
+                            {"label": "char1", "prompt": "1girl, pink dress"},
+                            {"label": "char2", "prompt": " "},
+                        ],
+                    },
+                )
+                self.assertEqual(
+                    result["item"]["characters"],
+                    [{"label": "char1", "prompt": "1girl, pink dress"}],
+                )
 
 
 class TagcloudRouteTests(unittest.TestCase):

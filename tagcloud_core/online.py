@@ -23,6 +23,10 @@ TAGCLOUD_DATA_BASE_URL = "https://assets.quicktagcloud.com/data"
 TAGCLOUD_MEDIA_BASE_URL = "https://assets.quicktagcloud.com"
 TAGCLOUD_TIMEOUT_SECONDS = 30.0
 TAGCLOUD_CACHE_TTL_SECONDS = 600.0
+# Release 文件按其内容哈希寻址（releases/r-<hash>/…），不可变：
+# 词条 JSON 可以长缓存，只有 current.json 指针需要短 TTL。
+TAGCLOUD_POINTER_CACHE_TTL_SECONDS = 60.0
+TAGCLOUD_RELEASE_CACHE_TTL_SECONDS = 7 * 24 * 3600.0
 TAGCLOUD_CACHE_MAX_BYTES = 64 * 1024 * 1024
 TAGCLOUD_PAGE_SIZE = 24
 MAX_PAGE_SIZE = 60
@@ -109,10 +113,16 @@ class TagcloudClient:
         http_client: Any | None = None,
     ) -> None:
         self.base_url = validate_tagcloud_base_url(base_url)
+        cache_root = Path(cache_root) if cache_root is not None else Path("data") / ".cache" / "tagcloud-online"
         self.cache = DiskResponseCache(
-            cache_root or Path("data") / ".cache" / "tagcloud-online",
-            ttl_seconds=cache_ttl_seconds,
+            cache_root / "release",
+            ttl_seconds=TAGCLOUD_RELEASE_CACHE_TTL_SECONDS,
             max_bytes=cache_max_bytes,
+        )
+        self.pointer_cache = DiskResponseCache(
+            cache_root / "pointer",
+            ttl_seconds=cache_ttl_seconds if cache_ttl_seconds else TAGCLOUD_POINTER_CACHE_TTL_SECONDS,
+            max_bytes=1024 * 1024,
         )
         self._owns_client = http_client is None
         self.http_client = http_client or httpx.Client(
@@ -121,8 +131,9 @@ class TagcloudClient:
             headers={"Accept": "application/json", "User-Agent": "Pixiv-NAI-Gallery/tagcloud"},
         )
 
-    def _get_json(self, url: str) -> Any:
-        cached = self.cache.get(url)
+    def _get_json(self, url: str, *, cache: DiskResponseCache | None = None) -> Any:
+        store = cache or self.cache
+        cached = store.get(url)
         if cached:
             try:
                 return json.loads(cached.decode("utf-8"))
@@ -146,7 +157,7 @@ class TagcloudClient:
         except Exception as exc:
             raise TagcloudClientError("法典图鉴返回了无效 JSON", status_code=status_code) from exc
         try:
-            self.cache.put(
+            store.put(
                 url,
                 json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
             )
@@ -155,7 +166,7 @@ class TagcloudClient:
         return payload
 
     def get_release(self) -> dict[str, str]:
-        payload = self._get_json(f"{self.base_url}/current.json")
+        payload = self._get_json(f"{self.base_url}/current.json", cache=self.pointer_cache)
         if not isinstance(payload, dict):
             raise TagcloudClientError("法典图鉴 release 指针格式无效")
         release = str(payload.get("release") or "")
@@ -257,6 +268,14 @@ class TagcloudClient:
         thumb = self.image_url(codex_id, str(entry.get("image") or ""), rev)
         original = self.image_url(codex_id, str(entry.get("original") or ""), rev, kind="original")
         path = [str(part)[:120] for part in (entry.get("path") or []) if str(part).strip()]
+        characters: list[dict[str, str]] = []
+        for raw_char in (entry.get("characterPrompts") or [])[:6]:
+            if not isinstance(raw_char, dict):
+                continue
+            prompt = _text(raw_char.get("prompt"), limit=2000)
+            if not prompt:
+                continue
+            characters.append({"label": _text(raw_char.get("label"), limit=60), "prompt": prompt})
         return {
             "id": entry_id,
             "codex_id": codex_id,
@@ -265,6 +284,7 @@ class TagcloudClient:
             "title": _text(entry.get("title"), limit=300) or entry_id,
             "path": path,
             "tags": _text(entry.get("tags"), limit=8000),
+            "characters": characters,
             "note": _text(entry.get("note"), limit=MAX_NOTE_LENGTH),
             "is_new": bool(entry.get("isNew")),
             "thumb": thumb,
@@ -335,6 +355,8 @@ class TagcloudClient:
     def status(self) -> dict[str, Any]:
         release = self.get_release()
         codexes = self.list_codexes()
+        cache_stats = self.cache.stats()
+        pointer_stats = self.pointer_cache.stats()
         return {
             "configured": True,
             "base_url": self.base_url,
@@ -343,12 +365,16 @@ class TagcloudClient:
             "published_at": release["published_at"],
             "codex_count": len(codexes),
             "safe_codex_count": len([item for item in codexes if not item["nsfw"]]),
-            "cache": self.cache.stats(),
+            "cache": {
+                "count": int(cache_stats.get("count", 0)) + int(pointer_stats.get("count", 0)),
+                "bytes": int(cache_stats.get("bytes", 0)) + int(pointer_stats.get("bytes", 0)),
+                "max_bytes": cache_stats.get("max_bytes", 0),
+            },
             "cache_ttl_seconds": self.cache.ttl_seconds,
         }
 
     def clear_cache(self) -> int:
-        return self.cache.clear()
+        return self.cache.clear() + self.pointer_cache.clear()
 
     def close(self) -> None:
         if self._owns_client:

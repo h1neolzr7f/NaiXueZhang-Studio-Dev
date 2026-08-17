@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>我的图库 · Nai学长工作室</title>
   <link rel="stylesheet" href="/assets/shared/site-nav.css?v=756cdf2a38" />
-  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=553c63addd" />
+  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=0134f627cf" />
   <link rel="stylesheet" href="/assets/studio-theme.css?v=51de05869a" />
 </head>
 <body data-page="library">
@@ -14,27 +14,32 @@
     <section class="ex-hello">
       <div>
         <h1>我的图库</h1>
-        <p>管理你的所有本地素材与生成资产</p>
+        <p>本机素材三库隔离：本机图库、自选库、QQ 群库。点卡片看详情、找相似、管收藏。</p>
       </div>
     </section>
     <section class="ex-ribbon" data-ribbon>
-      <div><small>资产总数</small><b data-stat-total>0</b></div>
-      <div><small>图片</small><b data-stat-images>0</b></div>
+      <div><small>当前库作品</small><b data-stat-total>0</b></div>
       <div><small>收藏</small><b data-stat-favs>0</b></div>
-      <div><small>合集入口</small><b data-stat-collections>0</b></div>
+      <div><small>待生成</small><b data-stat-queue>0</b></div>
+      <div><small>相似索引</small><b data-stat-index>—</b></div>
       <div><small>占用空间</small><b data-stat-size>—</b></div>
       <div><small>磁盘剩余</small><b data-stat-free>—</b></div>
     </section>
     <form class="ex-toolbar" data-search>
-      <button class="ex-tab is-on" type="button" data-kind="all">全部</button>
-      <button class="ex-tab" type="button" data-kind="images">图片</button>
-      <select name="gallery" data-gallery>
-        <option value="site">本机图库</option>
-        <option value="codex">自选库</option>
-        <option value="qqgroup">QQ 群库</option>
+      <button class="ex-tab is-on" type="button" data-view="all">全部</button>
+      <button class="ex-tab" type="button" data-view="favorites">收藏</button>
+      <button class="ex-tab" type="button" data-view="queue">待生成</button>
+      <button class="ex-tab" type="button" data-view="dupes">重复</button>
+      <select name="gallery" data-gallery></select>
+      <select name="group" data-group hidden></select>
+      <input name="q" type="search" placeholder="角色 / 标签 / ID / 作者" style="flex:1;min-width:200px" />
+      <select name="sort">
+        <option value="new">最新入库</option>
+        <option value="old">最早发布</option>
+        <option value="monthly">收藏热度</option>
+        <option value="count">图数最多</option>
+        <option value="title">标题顺序</option>
       </select>
-      <input name="q" type="search" placeholder="角色 / 标签 / ID / 作者 / 咒语" style="flex:1;min-width:220px" />
-      <select name="sort"><option value="new">创建时间</option><option value="monthly">收藏热度</option></select>
       <button class="ex-btn primary" type="submit">搜索</button>
     </form>
     <div class="ex-lib">
@@ -42,10 +47,10 @@
         <h3>快速访问</h3>
         <a href="/library">最近导入</a>
         <a href="/generated">最近生成</a>
-        <a href="/favorites">收藏</a>
-        <a href="/codex">自选库</a>
+        <a href="#" data-view-link="favorites">收藏</a>
+        <a href="#" data-view-link="queue">待生成队列</a>
         <h3>我的合集</h3>
-        <a href="/codex" data-collection>角色设定</a>
+        <a href="/codex" data-collection>自选库</a>
         <a href="/references" data-collection>参考库</a>
         <a href="/tag-assets" data-collection>本地资产</a>
         <h3>标签</h3>
@@ -53,11 +58,16 @@
       </aside>
       <section>
         <div class="ex-grid" data-grid></div>
+        <div data-dupes hidden></div>
+        <div class="ex-actions ex-more-row">
+          <button class="ex-btn" type="button" data-more hidden>加载更多</button>
+        </div>
         <p class="ex-empty" data-status></p>
         <div class="ex-select-bar">
           <span data-picked>未选择资产</span>
           <div class="ex-actions">
-            <a class="ex-btn" href="/favorites">收藏</a>
+            <button class="ex-btn" type="button" data-fav-toggle>收藏</button>
+            <button class="ex-btn" type="button" data-queue-toggle>加入待生成</button>
             <a class="ex-btn" data-remix href="/remix">换角色</a>
             <a class="ex-btn primary" data-use href="/studio">用此图生成</a>
           </div>
@@ -72,6 +82,6 @@
   <script src="/assets/shared/api-client.js?v=2a8a70c746"></script>
   <script src="/assets/shared/work-bridge.js?v=e03f149e05"></script>
   <script src="/assets/shared/site-nav.js?v=3846bb4a62"></script>
-  <script src="/assets/library-desk.js?v=03ad25350a"></script>
+  <script src="/assets/library-desk.js?v=526e6a6821"></script>
 </body>
 </html>

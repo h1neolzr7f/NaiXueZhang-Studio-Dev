@@ -254,7 +254,7 @@
     if (!document.querySelector("link[data-experience-rail]")) {
       const css = document.createElement("link");
       css.rel = "stylesheet";
-      css.href = "/assets/shared/experience-rail.css?v=553c63addd";
+      css.href = "/assets/shared/experience-rail.css?v=0134f627cf";
       css.dataset.experienceRail = "1";
       document.head.appendChild(css);
     }

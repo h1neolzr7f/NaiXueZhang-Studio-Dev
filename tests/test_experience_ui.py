@@ -72,6 +72,75 @@ class ExperienceUiTests(unittest.TestCase):
         self.assertIn("data-site=\"aitag\"", page.text)
         self.assertIn("pixivNaiPanel", page.text)
 
+    def test_discover_page_keeps_progress_and_aitag_detail_on_page(self) -> None:
+        html = (ROOT / "web" / "discover.html").read_text(encoding="utf-8")
+        js = (ROOT / "web" / "discover.js").read_text(encoding="utf-8")
+        self.assertIn('data-pixiv-live', html)
+        self.assertIn('data-pixiv-live-process', html)
+        self.assertIn('data-aitag-view="favorites"', html)
+        self.assertIn('data-aitag-detail', html)
+        self.assertIn('data-aitag-more', html)
+        self.assertIn("/api/crawler/pixiv/report", js)
+        self.assertIn("/api/nai/aitag/favorites/works", js)
+        self.assertIn("/api/nai/aitag/work/", js)
+        self.assertIn("/api/nai/aitag/favorites/", js)
+        self.assertNotIn("/api/online/search", js)
+        self.assertNotIn("aitag.win", html + js)
+
+    def test_library_page_uses_real_gallery_apis(self) -> None:
+        html = (ROOT / "web" / "library.html").read_text(encoding="utf-8")
+        js = (ROOT / "web" / "library-desk.js").read_text(encoding="utf-8")
+        self.assertIn('data-gallery', html)
+        self.assertIn('data-view="favorites"', html)
+        self.assertIn('data-view="queue"', html)
+        self.assertIn('data-view="dupes"', html)
+        self.assertIn('data-detail', html)
+        self.assertIn('data-more', html)
+        self.assertIn("/api/galleries", js)
+        self.assertIn("/api/ai_works_search", js)
+        self.assertIn("/api/favorites/works", js)
+        self.assertIn("/api/queue/works", js)
+        self.assertIn("/api/work/", js)
+        self.assertIn("/similar?work_id=", js)
+        self.assertIn("/duplicates?kind=", js)
+        self.assertIn("/index/status", js)
+        self.assertIn("/api/favorites/", js)
+        self.assertIn("/api/queue/", js)
+        self.assertNotIn("/api/online/", js)
+
+        import server
+
+        client = TestClient(server.app)
+        page = client.get("/library")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('data-page="library"', page.text)
+
+    def test_generate_desk_hands_off_without_calling_generate(self) -> None:
+        html = (ROOT / "web" / "generate.html").read_text(encoding="utf-8")
+        js = (ROOT / "web" / "generate-desk.js").read_text(encoding="utf-8")
+        self.assertIn('data-prompt', html)
+        self.assertIn('data-start', html)
+        self.assertIn('data-results', html)
+        self.assertIn('data-job', html)
+        self.assertIn('data-studio-queue', html)
+        # The desk must hand drafts into the real Studio workbench, never call
+        # the paid generation endpoint itself.
+        self.assertNotIn("/api/nai/generate", js)
+        self.assertIn("aitag.studio.draft.v1", js)
+        self.assertIn("/api/capability/decide", js)
+        self.assertIn("/api/studio/optimize", js)
+        self.assertIn("/api/studio/sanitize", js)
+        self.assertIn("/api/studio/queue", js)
+        self.assertIn("/api/nai/jobs", js)
+        self.assertIn("/api/generated", js)
+
+        import server
+
+        client = TestClient(server.app)
+        page = client.get("/generate")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('data-page="generate"', page.text)
+
     def test_http_snapshot_and_manifests(self) -> None:
         import server
 

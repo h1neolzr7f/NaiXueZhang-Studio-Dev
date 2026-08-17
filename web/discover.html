@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>在线发现 · Nai学长工作室</title>
-  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=553c63addd" />
+  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=0134f627cf" />
   <link rel="stylesheet" href="/assets/studio-theme.css?v=51de05869a" />
 </head>
 <body data-page="discover">
@@ -36,7 +36,7 @@
       <ol class="ex-howto">
         <li>写下要找的标签，一行一个，例如 <code>明日方舟</code></li>
         <li>想先看看行不行，点「先试跑（不入库）」</li>
-        <li>没问题再点「开始采集」。随时可以「停止」。新图在「我的图库」</li>
+        <li>没问题再点「开始采集」。进度就留在本页，随时可以「停止」。新图在「我的图库」</li>
       </ol>
       <div class="ex-crawl-head">
         <div>
@@ -44,6 +44,16 @@
           <p>后台按任务拉图。只有 NovelAI 作品会进本机图库，普通图不会混进来。</p>
         </div>
         <a class="ex-btn" href="/progress">更多设置</a>
+      </div>
+      <div class="ex-live" data-pixiv-live>
+        <div class="ex-live-chips">
+          <span class="ex-chip" data-pixiv-live-process>进程读取中…</span>
+          <span class="ex-chip" data-pixiv-live-round>本轮 —</span>
+          <span class="ex-chip" data-pixiv-live-quar>隔离 —</span>
+          <span class="ex-chip" data-pixiv-live-updated>—</span>
+        </div>
+        <div class="ex-live-counts" data-pixiv-live-counts></div>
+        <small class="ex-live-note" data-pixiv-live-note>进度留在本页，不用去别处看。</small>
       </div>
       <div class="ex-crawl-grid">
         <label class="wide">
@@ -109,7 +119,7 @@
     <section class="ex-panel ex-crawl" data-site-panel="aitag" hidden>
       <ol class="ex-howto">
         <li>输入角色或标签，点「搜索」</li>
-        <li>点卡片勾选要的作品，选中会亮蓝框</li>
+        <li>点卡片勾选要的作品，选中会亮蓝框；悬停卡片可看「详情」</li>
         <li>点「导入选中」。收藏只记位置，不下载原图</li>
       </ol>
       <div class="ex-crawl-head">
@@ -118,6 +128,10 @@
           <p>先搜索再勾选。导入后去「标签资产」继续用；不会自动开始采集。</p>
         </div>
         <a class="ex-btn" href="/tag-assets">打开标签资产</a>
+      </div>
+      <div class="ex-toolbar" role="tablist" aria-label="AITag 视图">
+        <button class="ex-tab is-on" type="button" data-aitag-view="search" role="tab" aria-selected="true">搜索结果</button>
+        <button class="ex-tab" type="button" data-aitag-view="favorites" role="tab" aria-selected="false">已收藏</button>
       </div>
       <form class="ex-search-hero" data-aitag-search>
         <input name="q" type="search" placeholder="例如：明日方舟" />
@@ -128,8 +142,30 @@
         </select>
         <button class="ex-btn primary" type="submit">搜索</button>
       </form>
+      <details class="ex-advanced" data-aitag-advanced>
+        <summary>高级筛选（作者、模型、图数）</summary>
+        <div class="ex-crawl-grid">
+          <label>作者名或编号<input name="creator" type="text" class="ex-field" placeholder="可选" /></label>
+          <label>模型（例如 NAI）<input name="model" type="text" class="ex-field" placeholder="可选" /></label>
+          <label class="wide">必含标签（逗号分隔）<input name="tags" type="text" class="ex-field" placeholder="可选" /></label>
+          <label>至少几张图<input name="min_images" type="number" min="0" max="100000" value="0" /></label>
+          <label>最多几张图<input name="max_images" type="number" min="0" max="100000" value="0" /></label>
+          <label>
+            时间范围
+            <select name="time_range">
+              <option value="all">全部时间</option>
+              <option value="day">近一天</option>
+              <option value="week">近一周</option>
+              <option value="month">近一月</option>
+            </select>
+          </label>
+        </div>
+      </details>
       <p class="ex-empty" data-aitag-status>输入关键词后点搜索。空着点搜索不会访问站点。</p>
       <section class="ex-grid" data-aitag-grid></section>
+      <div class="ex-actions ex-more-row">
+        <button class="ex-btn" type="button" data-aitag-more hidden>加载更多</button>
+      </div>
       <div class="ex-select-bar">
         <span data-aitag-picked>还没选作品</span>
         <div class="ex-actions">
@@ -141,9 +177,20 @@
       </div>
     </section>
   </main>
+
+  <div class="ex-modal" data-aitag-detail hidden>
+    <div class="ex-modal-card" role="dialog" aria-modal="true" aria-label="AITag 作品详情">
+      <header class="ex-modal-head">
+        <h3 data-detail-title>作品详情</h3>
+        <button class="ex-btn" type="button" data-detail-close aria-label="关闭">×</button>
+      </header>
+      <div class="ex-modal-body" data-detail-body></div>
+    </div>
+  </div>
+
   <script src="/assets/shared/api-client.js?v=2a8a70c746"></script>
   <script src="/assets/shared/site-nav.js?v=3846bb4a62"></script>
   <script src="/assets/pixiv-intake-control.js?v=90c8500913"></script>
-  <script src="/assets/discover.js?v=3bbd3f85f6"></script>
+  <script src="/assets/discover.js?v=5d57d31ce3"></script>
 </body>
 </html>

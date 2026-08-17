@@ -662,6 +662,78 @@ details.ex-advanced summary { cursor: pointer; color: var(--ex-muted); }
   position: sticky; bottom: 10px;
 }
 
+.ex-live {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ex-line);
+  border-radius: 14px;
+  background: rgba(8, 12, 20, 0.55);
+}
+.ex-live-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ex-live-counts {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.ex-live-counts div {
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 180, 255, 0.16);
+  border-radius: 10px;
+  background: rgba(16, 24, 42, 0.6);
+}
+.ex-live-counts small { display: block; color: var(--ex-muted); font-size: 11px; }
+.ex-live-counts b { font-size: 18px; }
+.ex-live-note { display: block; margin-top: 8px; color: var(--ex-muted); }
+.ex-more-row { justify-content: center; }
+.ex-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4, 7, 14, 0.72);
+}
+.ex-modal[hidden] { display: none; }
+.ex-modal-card {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  border: 1px solid var(--ex-line);
+  border-radius: 18px;
+  background: #0c1220;
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.6);
+}
+.ex-modal-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px 10px;
+  background: #0c1220;
+  border-bottom: 1px solid var(--ex-line);
+}
+.ex-modal-head h3 { margin: 0; font-size: 16px; }
+.ex-modal-body { padding: 14px 16px 18px; }
+.ex-modal-body p { color: #c9d4ea; }
+.ex-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.ex-detail-grid img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 180, 255, 0.2);
+  background: #151b2c;
+}
+
 .ex-ribbon { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
 .ex-ribbon b { display: block; font-size: 22px; }
 .ex-ribbon small { color: var(--ex-muted); }

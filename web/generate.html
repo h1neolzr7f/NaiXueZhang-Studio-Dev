@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>生成台 · Nai学长工作室</title>
   <link rel="stylesheet" href="/assets/shared/site-nav.css?v=756cdf2a38" />
-  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=553c63addd" />
+  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=0134f627cf" />
   <link rel="stylesheet" href="/assets/studio-theme.css?v=51de05869a" />
 </head>
 <body data-page="generate">
@@ -19,18 +19,13 @@
       <span class="ex-online">● 在线</span>
     </section>
     <p class="ex-empty" data-source>文生图 · 需要参考图时从图库点「用此图生成」</p>
-    <div class="ex-toolbar">
-      <button class="ex-tab is-on" type="button">文生图</button>
-      <a class="ex-tab" data-mode href="/studio">图生图</a>
-      <a class="ex-tab" data-mode href="/studio">局部重绘</a>
-      <a class="ex-tab" data-mode href="/studio">扩图</a>
-    </div>
     <div class="ex-gen">
       <section class="ex-panel">
         <h3>正向提示词 <span class="ex-count" data-prompt-count>0/1000</span></h3>
         <textarea class="ex-field" data-prompt rows="8" placeholder="1girl, neon lights, rainy night"></textarea>
         <div class="ex-actions">
-          <button class="ex-btn" type="button" data-assist>去工作台优化</button>
+          <button class="ex-btn" type="button" data-optimize>智能优化</button>
+          <button class="ex-btn" type="button" data-sanitize>清洗风险词</button>
           <button class="ex-btn" type="button" data-random>随机提示词</button>
           <button class="ex-btn" type="button" data-clear>清空</button>
         </div>
@@ -49,17 +44,23 @@
         <div class="ex-toolbar">
           <label>分辨率 <select class="ex-field" data-size></select></label>
           <label>Seed <input class="ex-field" data-seed type="number" value="-1" /></label>
+          <label>张数 <input class="ex-field" data-batch type="number" min="1" max="8" value="1" style="width:72px" /></label>
         </div>
         <div class="ex-panel" style="margin:12px 0;padding:12px">
           <b>换角色（可选）</b>
           <p>角色槽替换走现有换角台，不在这里另做一套。</p>
           <a class="ex-btn" href="/remix">打开换角</a>
         </div>
-        <button class="ex-start" type="button" data-start>开始生成<small>付费出图需管家确认，此页不会扣费</small></button>
+        <button class="ex-start" type="button" data-start>开始生成<small>草稿与参数交接进完整工作台；付费出图需确认，此页不会扣费</small></button>
         <p class="ex-empty" data-gen-status></p>
         <div data-confirm-card></div>
       </section>
       <section class="ex-panel">
+        <h3>当前任务</h3>
+        <div data-job><p class="ex-empty">读取真实生成队列…</p></div>
+        <h3>待生成队列</h3>
+        <div class="ex-results" data-studio-queue></div>
+        <p class="ex-empty" data-queue-status></p>
         <h3>生成进度与活动</h3>
         <div data-timeline></div>
         <h3>生成结果</h3>
@@ -69,7 +70,8 @@
     </div>
   </main>
   <script src="/assets/shared/api-client.js?v=2a8a70c746"></script>
+  <script src="/assets/shared/work-bridge.js?v=e03f149e05"></script>
   <script src="/assets/shared/site-nav.js?v=3846bb4a62"></script>
-  <script src="/assets/generate-desk.js?v=c69d978614"></script>
+  <script src="/assets/generate-desk.js?v=547b4764b5"></script>
 </body>
 </html>

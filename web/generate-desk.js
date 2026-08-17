@@ -1,5 +1,6 @@
 (function () {
   const DRAFT_KEY = "nxzGenerateDraft";
+  const STUDIO_DRAFT_KEY = "aitag.studio.draft.v1";
 
   function escapeText(value) {
     return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -17,6 +18,7 @@
     const query = params();
     const size = document.querySelector("[data-size]");
     const picked = String((size && size.value) || "832x1216").split("x");
+    const batch = document.querySelector("[data-batch]");
     return {
       prompt: String((document.querySelector("[data-prompt]") || {}).value || ""),
       uc: String((document.querySelector("[data-uc]") || {}).value || ""),
@@ -26,24 +28,57 @@
       sampler: String((document.querySelector("[data-sampler]") || {}).value || "k_euler_ancestral"),
       width: picked[0] || "832",
       height: picked[1] || "1216",
+      batch: String((batch && batch.value) || "1"),
       from: String(query.get("from") || readDraft().from || ""),
       gallery: String(query.get("gallery") || query.get("gallery_id") || readDraft().gallery || "site"),
     };
   }
+  // Hand off through the real Studio draft store: /studio restores
+  // localStorage["aitag.studio.draft.v1"] on boot when no work import is given.
+  function writeStudioDraft(item) {
+    const payload = {
+      draftId: "",
+      workId: 0,
+      pageIndex: 0,
+      sourceKind: "",
+      source: { provider: "" },
+      texts: {
+        prompt: String(item.prompt || "").trim(),
+        base_caption: "",
+        uc: String(item.uc || "").trim(),
+        char_captions: [],
+      },
+      params: {
+        width: item.width,
+        height: item.height,
+        steps: item.steps,
+        scale: item.scale,
+        seed: item.seed && item.seed !== "-1" ? item.seed : "",
+        sampler: item.sampler,
+        batch: item.batch || "1",
+      },
+      refs: { vibe: "", char: "", strength: "0.6" },
+      comment: null,
+      pages: [],
+      ts: Date.now(),
+    };
+    try {
+      window.localStorage.setItem(STUDIO_DRAFT_KEY, JSON.stringify(payload));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
   function buildStudioHandoff(draft) {
-    const studio = new URL("/studio", window.location.origin);
     const item = draft || collectDraft();
-    if (item.prompt) studio.searchParams.set("prompt", item.prompt);
-    if (item.uc) studio.searchParams.set("uc", item.uc);
-    if (item.steps) studio.searchParams.set("steps", item.steps);
-    if (item.scale) studio.searchParams.set("scale", item.scale);
-    if (item.seed && item.seed !== "-1") studio.searchParams.set("seed", item.seed);
-    if (item.sampler) studio.searchParams.set("sampler", item.sampler);
-    if (item.width) studio.searchParams.set("width", item.width);
-    if (item.height) studio.searchParams.set("height", item.height);
-    if (item.from) studio.searchParams.set("from", item.from);
-    if (item.gallery) studio.searchParams.set("gallery", item.gallery);
-    return studio.pathname + studio.search;
+    if (item.from) {
+      const studio = new URL("/studio", window.location.origin);
+      studio.searchParams.set("from", item.from);
+      studio.searchParams.set("gallery", item.gallery || "site");
+      return studio.pathname + studio.search;
+    }
+    writeStudioDraft(item);
+    return "/studio";
   }
   function applyDraft(draft) {
     const item = draft || {};
@@ -61,13 +96,71 @@
     if (seed && item.seed) seed.value = item.seed;
     if (sampler && item.sampler) sampler.value = item.sampler;
     if (size && item.width && item.height) size.value = item.width + "x" + item.height;
-    const source = document.querySelector("[data-source]");
-    if (source) {
-      source.textContent = item.from
-        ? ("将使用作品 #" + item.from + " · " + (item.gallery || "site"))
-        : "文生图 · 需要参考图时从图库点「用此图生成」";
-    }
     bindCounts();
+  }
+  async function fillSourceCard() {
+    const source = document.querySelector("[data-source]");
+    if (!source) return;
+    const query = params();
+    const from = String(query.get("from") || readDraft().from || "");
+    if (!from) {
+      source.textContent = "文生图 · 需要参考图时从图库点「用此图生成」";
+      return;
+    }
+    const gid = String(query.get("gallery") || query.get("gallery_id") || readDraft().gallery || "site");
+    try {
+      const lite = await window.ApiClient.get("/api/work/" + encodeURIComponent(from) + "/lite?gallery_id=" + encodeURIComponent(gid));
+      const title = String((lite && lite.title) || "作品 " + from);
+      source.textContent = "将导入来源作品 #" + from + "（" + title + "）的咒语与参数；到工作台后可继续编辑";
+    } catch (_) {
+      source.textContent = "将导入来源作品 #" + from + " 的咒语与参数；到工作台后可继续编辑";
+    }
+  }
+  function draftComment() {
+    const item = collectDraft();
+    const prompt = String(item.prompt || "").trim();
+    return {
+      prompt,
+      uc: String(item.uc || "").trim(),
+      v4_prompt: { caption: { base_caption: prompt, char_captions: [] } },
+      width: Number(item.width) || 832,
+      height: Number(item.height) || 1216,
+      steps: Number(item.steps) || 28,
+      scale: Number(item.scale) || 5,
+      sampler: item.sampler || "k_euler_ancestral",
+      seed: null,
+    };
+  }
+  function applyTexts(texts) {
+    if (!texts) return;
+    const prompt = document.querySelector("[data-prompt]");
+    const uc = document.querySelector("[data-uc]");
+    if (prompt && (texts.prompt || texts.base_caption)) prompt.value = texts.prompt || texts.base_caption;
+    if (uc && texts.uc != null) uc.value = texts.uc;
+    bindCounts();
+  }
+  async function runPromptTool(kind) {
+    const status = document.querySelector("[data-gen-status]");
+    const prompt = String((document.querySelector("[data-prompt]") || {}).value || "").trim();
+    if (!prompt) {
+      if (status) status.textContent = "先写点正向提示词，再" + (kind === "optimize" ? "优化。" : "清洗。");
+      return;
+    }
+    if (status) status.textContent = kind === "optimize" ? "正在智能优化（不生成图）…" : "正在清洗风险词…";
+    try {
+      const path = kind === "optimize" ? "/api/studio/optimize" : "/api/studio/sanitize";
+      const body = kind === "optimize" ? { comment: draftComment(), mode: "smart" } : { comment: draftComment() };
+      const result = await window.ApiClient.post(path, body);
+      applyTexts(result && result.texts);
+      if (status) {
+        const removed = result && Array.isArray(result.removed) ? result.removed.length : 0;
+        status.textContent = kind === "sanitize" && removed
+          ? ("已清洗 " + removed + " 处风险词。")
+          : ((result && result.message) || "完成。咒语已回填，可继续编辑。");
+      }
+    } catch (error) {
+      if (status) status.textContent = "处理失败：" + (error.message || error);
+    }
   }
   function renderTimeline(payload) {
     const host = document.querySelector("[data-timeline]");
@@ -88,6 +181,67 @@
       return `<div class="ex-event${severity}"><i></i><div><b>${escapeText(item.stage_label || item.type)}</b><small>${escapeText(item.agent_id || "")}</small>${bar}</div></div>`;
     }).join("");
   }
+  function renderJob(job) {
+    const host = document.querySelector("[data-job]");
+    if (!host) return;
+    if (!job || !job.status || job.status === "idle") {
+      host.innerHTML = '<p class="ex-empty">当前没有生成任务。提交后这里会显示真实进度。</p>';
+      return;
+    }
+    const done = Number(job.done != null ? job.done : (job.progress && job.progress.done) || 0);
+    const total = Number(job.total != null ? job.total : (job.progress && job.progress.total) || 0);
+    const pct = total ? Math.max(0, Math.min(100, Math.round((done / total) * 100))) : 0;
+    const label = {
+      running: "生成中",
+      queued: "排队中",
+      done: "已完成",
+      error: "失败",
+      cancelled: "已取消",
+      unknown: "状态不确定",
+    }[String(job.status)] || String(job.status);
+    const warn = job.billing_uncertain ? '<p class="ex-empty">计费结果不确定，请打开生成库核对后再重试。</p>' : "";
+    host.innerHTML = `<div class="ex-step">
+      <b>${escapeText(label)}${total ? " · " + done + "/" + total : ""}</b>
+      <div class="ex-progress"><span style="width:${pct}%"></span></div>
+      <small>${escapeText(String(job.message || job.current_phase || ""))}</small>
+      ${warn}
+      <a class="ex-btn" href="/generated">打开生成库</a>
+    </div>`;
+  }
+  async function refreshJob() {
+    try {
+      const data = await window.ApiClient.get("/api/nai/jobs");
+      renderJob((data && data.job) || null);
+    } catch (_) { /* keep last */ }
+  }
+  function renderStudioQueue(items) {
+    const host = document.querySelector("[data-studio-queue]");
+    const status = document.querySelector("[data-queue-status]");
+    if (!host) return;
+    if (!items.length) {
+      host.innerHTML = "";
+      if (status) status.textContent = "待生成队列是空的。在图库详情里点「加入待生成」。";
+      return;
+    }
+    if (status) status.textContent = "待生成 " + items.length + " 项 · 点卡片带进完整工作台";
+    host.innerHTML = items.map((item) => {
+      const thumb = item.thumb || "";
+      const wid = String(item.work_id || "");
+      return `<article class="ex-card" data-queue-open="${escapeText(wid)}" title="带进完整工作台">
+        ${thumb ? `<img src="${escapeText(thumb)}" alt="" loading="lazy" />` : `<div class="ex-ph"></div>`}
+        <div class="ex-meta"><strong>${escapeText(item.title || ("作品 " + wid))}</strong></div>
+      </article>`;
+    }).join("");
+  }
+  async function loadStudioQueue() {
+    try {
+      const data = await window.ApiClient.get("/api/studio/queue?limit=12");
+      renderStudioQueue((data && data.items) || []);
+    } catch (_) {
+      const status = document.querySelector("[data-queue-status]");
+      if (status) status.textContent = "待生成队列暂时读不到。";
+    }
+  }
   function renderResults(groups) {
     const host = document.querySelector("[data-results]");
     if (!host) return;
@@ -96,11 +250,34 @@
       host.innerHTML = "";
       return;
     }
-    host.innerHTML = rows.slice(0, 12).map((item) => {
+    host.innerHTML = rows.slice(0, 24).map((item) => {
       const thumb = item.cover_url || item.cover_thumb || item.source_thumb || "";
-      const href = item.id ? ("/generated#" + encodeURIComponent(item.id)) : "/generated";
-      return `<a class="ex-card" href="${escapeText(href)}">${thumb ? `<img src="${escapeText(thumb)}" alt="" />` : `<div class="ex-ph"></div>`}<div class="ex-meta"><strong>${escapeText(item.source_title || item.id || "生成结果")}</strong></div></a>`;
+      const gid = item.group_id || item.id || "";
+      const href = gid ? ("/generated?g=" + encodeURIComponent(gid)) : "/generated";
+      const when = String(item.latest_at || "").replace("T", " ").slice(5, 16);
+      const count = Number(item.count || 0);
+      return `<a class="ex-card" href="${escapeText(href)}">${thumb ? `<img src="${escapeText(thumb)}" alt="" loading="lazy" />` : `<div class="ex-ph"></div>`}<div class="ex-meta"><strong>${escapeText(item.source_title || gid || "生成结果")}</strong><small>${count ? count + " 张" : ""}${when ? " · " + escapeText(when) : ""}</small></div></a>`;
     }).join("");
+  }
+  async function loadResults() {
+    const status = document.querySelector("[data-result-status]");
+    try {
+      const data = await window.ApiClient.get("/api/generated");
+      const groups = (data && data.groups) || [];
+      renderResults(groups);
+      if (status) {
+        const batch = data && data.batch;
+        const batchBits = batch && batch.status && batch.status !== "idle"
+          ? (" · 当前批量 " + String(batch.status) + " " + Number(batch.done || 0) + "/" + Number(batch.total || 0))
+          : "";
+        status.textContent = groups.length
+          ? ("最近 " + groups.length + " 组真实结果" + batchBits + " · 更多在生成库")
+          : "还没有生成结果。提交后会出现在这里和生成库。";
+      }
+    } catch (_) {
+      renderResults([]);
+      if (status) status.textContent = "生成结果暂时读不到，可打开生成库查看。";
+    }
   }
   function showConfirm(decided, href) {
     const host = document.querySelector("[data-confirm-card]");
@@ -122,6 +299,10 @@
   async function startGenerate() {
     const status = document.querySelector("[data-gen-status]");
     const draft = collectDraft();
+    if (!draft.from && !String(draft.prompt || "").trim()) {
+      if (status) status.textContent = "先写正向提示词，或从图库点「用此图生成」带来源。";
+      return;
+    }
     writeDraft(draft);
     const href = buildStudioHandoff(draft);
     if (window.WorkBridge && draft.from) {
@@ -191,18 +372,6 @@
       }
     }
   }
-  async function loadResults() {
-    const status = document.querySelector("[data-result-status]");
-    try {
-      const data = await window.ApiClient.get("/api/generated");
-      const groups = (data && data.groups) || [];
-      renderResults(groups);
-      if (status) status.textContent = groups.length ? ("最近 " + groups.length + " 组真实结果") : "还没有生成结果。提交后会出现在这里和生成库。";
-    } catch (_) {
-      renderResults([]);
-      if (status) status.textContent = "生成结果暂时读不到，可打开生成库查看。";
-    }
-  }
   function start() {
     if (!window.ApiClient) return;
     const query = params();
@@ -213,12 +382,10 @@
     });
     bindCounts();
     void loadStudioOptions().then(() => applyDraft(draft));
+    void fillSourceCard();
     document.querySelector("[data-start]").addEventListener("click", () => { void startGenerate(); });
-    document.querySelector("[data-assist]").addEventListener("click", () => {
-      const item = collectDraft();
-      writeDraft(item);
-      window.location.href = buildStudioHandoff(item);
-    });
+    document.querySelector("[data-optimize]").addEventListener("click", () => { void runPromptTool("optimize"); });
+    document.querySelector("[data-sanitize]").addEventListener("click", () => { void runPromptTool("sanitize"); });
     document.querySelector("[data-clear]").addEventListener("click", () => {
       document.querySelector("[data-prompt]").value = "";
       document.querySelector("[data-uc]").value = "";
@@ -229,19 +396,23 @@
       document.querySelector("[data-prompt]").value = "1girl, neon lights, rainy night, looking at viewer";
       bindCounts();
     });
-    document.querySelectorAll("[data-mode]").forEach((link) => {
-      link.addEventListener("click", (event) => {
-        const item = collectDraft();
-        writeDraft(item);
-        if (item.from) {
-          event.preventDefault();
-          window.location.href = buildStudioHandoff(item);
-        }
-      });
+    document.querySelector("[data-studio-queue]").addEventListener("click", (event) => {
+      const card = event.target.closest("[data-queue-open]");
+      if (!card) return;
+      const wid = card.getAttribute("data-queue-open");
+      if (window.WorkBridge) window.WorkBridge.save({ workId: wid, galleryId: "site", from: "generate" });
+      window.location.href = "/studio?from=" + encodeURIComponent(wid) + "&gallery=site";
     });
     window.addEventListener("experience-snapshot", (event) => renderTimeline(event.detail || {}));
     window.ApiClient.get("/api/experience/snapshot").then(renderTimeline).catch(() => renderTimeline({}));
     void loadResults();
+    void loadStudioQueue();
+    void refreshJob();
+    setInterval(() => {
+      if (document.hidden) return;
+      void refreshJob();
+      void loadResults();
+    }, 4000);
   }
   window.buildStudioHandoff = buildStudioHandoff;
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

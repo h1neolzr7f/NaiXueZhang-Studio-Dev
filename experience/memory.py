@@ -82,6 +82,10 @@ def list_layered_memories(*, layer: str = "", include_forgotten: bool = False) -
     return rows
 
 
+def forget_layered_memory(memory_id: str) -> dict[str, Any]:
+    return companion_state.forget_memory(str(memory_id or "").strip())
+
+
 def memory_cannot_authorize(capability_id: str, memories: list[dict[str, Any]] | None = None) -> bool:
     _ = capability_id
     _ = memories

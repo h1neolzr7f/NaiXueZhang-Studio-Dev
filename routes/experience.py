@@ -11,7 +11,7 @@ from experience.conversation import assert_conversation_workflow_split
 from experience.events import apply_projected_events
 from experience.handoff_product import consume_product_handoff, create_product_handoff, list_product_handoffs
 from experience.manifests import list_manifests, load_manifest
-from experience.memory import list_layered_memories, propose_layered_memory
+from experience.memory import forget_layered_memory, list_layered_memories, propose_layered_memory
 from experience.projector import project_snapshot
 
 router = APIRouter(prefix="/api/experience")
@@ -88,6 +88,15 @@ def api_experience_memory_propose(payload: dict[str, Any] = Body(default_factory
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "memory": item}
+
+
+@router.post("/memories/{memory_id}/forget")
+def api_experience_memory_forget(memory_id: str) -> dict[str, Any]:
+    try:
+        item = forget_layered_memory(memory_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"ok": True, "memory": item}
 
 

@@ -289,7 +289,7 @@ class TagcloudClient:
             "is_new": bool(entry.get("isNew")),
             "thumb": thumb,
             "image": original or thumb,
-            "source_url": TAGCLOUD_SITE_URL + "/",
+            "source_url": f"{TAGCLOUD_SITE_URL}/?codex={codex_id}&entry={entry_id}",
         }
 
     def get_entry(self, codex_id: str, entry_id: str) -> dict[str, Any] | None:

@@ -26,6 +26,12 @@ class ExperienceUiTests(unittest.TestCase):
         self.assertIsNone(re.search(r"\bfetch\s*\(", js))
         self.assertIn("window.ApiClient", js)
         self.assertIn("/api/experience/snapshot", js)
+        self.assertIn("/api/experience/handoffs", js)
+        self.assertIn("character_states", js)
+        self.assertIn("EventSource", js)
+        self.assertIn("data-aitag-search", js)
+        self.assertIn("data-tagcloud-search", js)
+        self.assertIn(".ex-page [data-search]", js)
         self.assertIn("nxzExperienceAgentOff", js)
         self.assertIn("experience-agent-off", js)
         self.assertIn("采集", js + (ROOT / "experience" / "manifests.py").read_text(encoding="utf-8"))
@@ -74,6 +80,14 @@ class ExperienceUiTests(unittest.TestCase):
         self.assertIn("window.confirm", js)
         self.assertIn("/api/nai/aitag/search", js)
         self.assertIn("/api/nai/aitag/import", js)
+        self.assertIn("character_candidates", js)
+        self.assertIn("needSlot", js)
+        self.assertIn("/api/crawler/autopilot", js)
+        self.assertIn("/api/crawler/arknights/update", js)
+        self.assertIn("/api/crawler/restart", js)
+        self.assertIn("source_url", js)
+        self.assertIn('value="day"', html)
+        self.assertIn('value="current"', html)
         self.assertNotIn("/api/online/search", js)
         self.assertNotIn("aitag.win", html)
         self.assertLess(html.find("pixiv-intake-control.js"), html.find("discover.js"))
@@ -122,6 +136,13 @@ class ExperienceUiTests(unittest.TestCase):
         self.assertIn("/index/status", js)
         self.assertIn("/api/favorites/", js)
         self.assertIn("/api/queue/", js)
+        self.assertIn("/api/queue/clear", js)
+        self.assertIn("/api/storage/open", js)
+        self.assertIn("/import-drop", js)
+        self.assertIn("/api/tags/translate", js)
+        self.assertIn("/generate?from=", js)
+        self.assertIn("data-drop", html)
+        self.assertIn("data-queue-clear", html)
         self.assertNotIn("/api/online/", js)
 
         import server
@@ -147,8 +168,12 @@ class ExperienceUiTests(unittest.TestCase):
         self.assertIn("/api/studio/optimize", js)
         self.assertIn("/api/studio/sanitize", js)
         self.assertIn("/api/studio/queue", js)
+        self.assertIn("/api/queue", js)
+        self.assertIn("overlayAfterImport", js)
+        self.assertIn("data-queue-gallery", js)
         self.assertIn("/api/nai/jobs", js)
         self.assertIn("/api/generated", js)
+        self.assertIn("overlayGenerateDeskDraft", (ROOT / "web" / "studio.js").read_text(encoding="utf-8"))
 
         import server
 
@@ -208,7 +233,8 @@ class ExperienceUiTests(unittest.TestCase):
         self.assertIn("pixiv-intake-report", discover)
         self.assertIn("pixivLiveEventAt", discover)
         generate = (ROOT / "web" / "generate-desk.js").read_text(encoding="utf-8")
-        self.assertIn('ref.gallery_id !== "site"', generate)
+        self.assertIn("data-queue-gallery", generate)
+        self.assertIn("/api/queue", generate)
 
     def test_http_snapshot_and_manifests(self) -> None:
         import server
@@ -238,6 +264,25 @@ class ExperienceUiTests(unittest.TestCase):
         self.assertEqual(desk.status_code, 200)
         self.assertIn("data-page=\"desk\"", desk.text)
         self.assertIn("创作工作流", desk.text)
+        self.assertIn('href="/discover"', desk.text)
+        self.assertIn('href="/library"', desk.text)
+        settings = client.get("/settings")
+        self.assertEqual(settings.status_code, 200)
+        self.assertIn('data-page="settings"', settings.text)
+        self.assertIn("experience-memories", settings.text)
+        settings_js = (ROOT / "web" / "settings.js").read_text(encoding="utf-8")
+        self.assertIn("/api/experience/memories", settings_js)
+        self.assertIn("/forget", settings_js)
+        tools = client.get("/tools")
+        self.assertEqual(tools.status_code, 200)
+        self.assertIn("Doctor", tools.text)
+
+    def test_aitag_day_filter_is_not_silently_all(self) -> None:
+        from aitag_core.online import AitagSearchRequest
+
+        self.assertEqual(AitagSearchRequest(time_range="day").normalized().time_range, "day")
+        self.assertEqual(AitagSearchRequest(time_range="today").normalized().time_range, "day")
+        self.assertEqual(AitagSearchRequest(time_range="week").normalized().time_range, "week")
 
 
 if __name__ == "__main__":

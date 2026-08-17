@@ -176,7 +176,10 @@ class TagcloudClientTests(unittest.TestCase):
             client = _make_client(tmp)
             entry = client.get_entry("composition_style", "composition_style_0001")
             self.assertIsNotNone(entry)
-            self.assertEqual(entry["source_url"], "https://novelai.quicktagcloud.com/")
+            self.assertEqual(
+                entry["source_url"],
+                "https://novelai.quicktagcloud.com/?codex=composition_style&entry=composition_style_0001",
+            )
             self.assertTrue(entry["image"].endswith(".png?v=e1d9fa43f9a6d14e"))
             self.assertIsNone(client.get_entry("composition_style", "missing"))
 

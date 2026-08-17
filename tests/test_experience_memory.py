@@ -6,7 +6,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from butler import companion_state
-from experience.memory import list_layered_memories, propose_layered_memory
+from experience.memory import forget_layered_memory, list_layered_memories, propose_layered_memory
+from tests.asgi_client import TestClient
 
 
 class ExperienceMemoryTests(unittest.TestCase):
@@ -32,9 +33,22 @@ class ExperienceMemoryTests(unittest.TestCase):
         self.assertFalse(item["authoritative"])
         rows = list_layered_memories(layer="specialist")
         self.assertEqual(rows[0]["id"], item["id"])
-        forgotten = companion_state.forget_memory(item["id"])
+        forgotten = forget_layered_memory(item["id"])
         self.assertEqual(forgotten["status"], "forgotten")
         self.assertEqual(list_layered_memories(layer="specialist"), [])
+
+    def test_memory_forget_route_uses_existing_companion_store(self) -> None:
+        import server
+
+        item = propose_layered_memory("少用高饱和", layer="user_preference", scope="preference")
+        client = TestClient(server.app)
+        listed = client.get("/api/experience/memories")
+        self.assertEqual(listed.status_code, 200)
+        self.assertTrue(any(row.get("id") == item["id"] for row in listed.json()["memories"]))
+        forgotten = client.post(f"/api/experience/memories/{item['id']}/forget", json={})
+        self.assertEqual(forgotten.status_code, 200)
+        self.assertEqual(forgotten.json()["memory"]["status"], "forgotten")
+        self.assertEqual(list_layered_memories(), [])
 
     def test_unknown_layer_and_authority_scope_are_rejected(self) -> None:
         with self.assertRaises(ValueError):

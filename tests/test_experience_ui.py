@@ -46,6 +46,32 @@ class ExperienceUiTests(unittest.TestCase):
         js = (ROOT / "web" / "online-discover.js").read_text(encoding="utf-8")
         self.assertIn('params.get("workspace") === "acquire"', js)
 
+    def test_discover_page_hosts_existing_pixiv_crawler(self) -> None:
+        html = (ROOT / "web" / "discover.html").read_text(encoding="utf-8")
+        js = (ROOT / "web" / "discover.js").read_text(encoding="utf-8")
+        self.assertIn('id="pixivNaiPanel"', html)
+        self.assertIn('id="pixivStartWatch"', html)
+        self.assertIn("/assets/pixiv-intake-control.js?v=", html)
+        self.assertIn("/api/crawler/status", js)
+        self.assertNotIn("/api/crawler/start", js)
+        self.assertIn("只采集 Pixiv 和 AITag", html)
+        self.assertIn("ex-howto", html)
+        self.assertIn("先试跑（不入库）", html)
+        self.assertIn("window.confirm", js)
+        self.assertIn("/api/nai/aitag/search", js)
+        self.assertIn("/api/nai/aitag/import", js)
+        self.assertNotIn("/api/online/search", js)
+        self.assertNotIn("aitag.win", html)
+        self.assertLess(html.find("pixiv-intake-control.js"), html.find("discover.js"))
+
+        import server
+
+        client = TestClient(server.app)
+        page = client.get("/discover")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("data-site=\"aitag\"", page.text)
+        self.assertIn("pixivNaiPanel", page.text)
+
     def test_http_snapshot_and_manifests(self) -> None:
         import server
 

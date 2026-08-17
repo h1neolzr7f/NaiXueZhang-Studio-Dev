@@ -249,17 +249,17 @@
 
   function loadExperienceRail() {
     const path = (window.location.pathname || "").replace(/\/+$/, "") || "/";
-    if (path === "/butler" || path.startsWith("/app/butler")) return;
+    if (path.startsWith("/app/butler")) return;
     if (document.querySelector("script[data-experience-rail]")) return;
     if (!document.querySelector("link[data-experience-rail]")) {
       const css = document.createElement("link");
       css.rel = "stylesheet";
-      css.href = "/assets/shared/experience-rail.css?v=5f4015f7cb";
+      css.href = "/assets/shared/experience-rail.css?v=553c63addd";
       css.dataset.experienceRail = "1";
       document.head.appendChild(css);
     }
     const script = document.createElement("script");
-    script.src = "/assets/shared/experience-rail.js?v=a892eb057c";
+    script.src = "/assets/shared/experience-rail.js?v=54813882fe";
     script.dataset.experienceRail = "1";
     script.async = true;
     document.head.appendChild(script);

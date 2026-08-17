@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>工作流 · Nai学长工作室</title>
+  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=553c63addd" />
+  <link rel="stylesheet" href="/assets/studio-theme.css?v=51de05869a" />
+</head>
+<body data-page="flow">
+  <div id="siteNav"></div>
+  <main class="ex-page">
+    <section class="ex-hello">
+      <div>
+        <h1>工作流</h1>
+        <p>队列、导演台和生成库都是现有工作流，这里统一入口。</p>
+      </div>
+    </section>
+    <section class="ex-ribbon">
+      <div><small>待生成</small><b data-queue>—</b></div>
+      <div><small>生成库</small><b data-generated>—</b></div>
+    </section>
+    <section class="ex-flow">
+      <div class="ex-flow-head"><h3>创作工作流</h3><a class="ex-btn primary" href="/queue">打开队列</a></div>
+      <div class="ex-flow-row">
+        <a class="ex-step-chip" href="/discover"><b>在线发现</b><small>搜索素材</small></a>
+        <a class="ex-step-chip" href="/library"><b>入库</b><small>本机图库</small></a>
+        <a class="ex-step-chip" href="/remix"><b>换角色</b><small>角色槽替换</small></a>
+        <a class="ex-step-chip" href="/generate"><b>生成</b><small>真实队列</small></a>
+      </div>
+    </section>
+    <section class="ex-hub">
+      <a href="/queue"><b>待生成队列</b><small>已选作品进入现有队列</small></a>
+      <a href="/director"><b>导演台</b><small>批量编排，不另起引擎</small></a>
+      <a href="/generated"><b>生成库</b><small>已出图结果</small></a>
+      <a href="/remix"><b>换角台</b><small>角色替换工作流</small></a>
+      <a href="/pipeline"><b>后处理</b><small>放大与后续步骤</small></a>
+      <a href="/studio"><b>完整工作台</b><small>参数与提交仍在这里</small></a>
+    </section>
+  </main>
+  <script src="/assets/shared/api-client.js?v=2a8a70c746"></script>
+  <script src="/assets/shared/site-nav.js?v=3846bb4a62"></script>
+  <script src="/assets/hub-desk.js?v=c91bfcf25d"></script>
+</body>
+</html>

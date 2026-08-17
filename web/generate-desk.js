@@ -1,0 +1,249 @@
+(function () {
+  const DRAFT_KEY = "nxzGenerateDraft";
+
+  function escapeText(value) {
+    return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function params() {
+    return new URLSearchParams(window.location.search || "");
+  }
+  function readDraft() {
+    try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}") || {}; } catch (_) { return {}; }
+  }
+  function writeDraft(draft) {
+    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft || {})); } catch (_) { /* ignore */ }
+  }
+  function collectDraft() {
+    const query = params();
+    const size = document.querySelector("[data-size]");
+    const picked = String((size && size.value) || "832x1216").split("x");
+    return {
+      prompt: String((document.querySelector("[data-prompt]") || {}).value || ""),
+      uc: String((document.querySelector("[data-uc]") || {}).value || ""),
+      steps: String((document.querySelector("[data-steps]") || {}).value || "28"),
+      scale: String((document.querySelector("[data-cfg]") || {}).value || "5"),
+      seed: String((document.querySelector("[data-seed]") || {}).value || ""),
+      sampler: String((document.querySelector("[data-sampler]") || {}).value || "k_euler_ancestral"),
+      width: picked[0] || "832",
+      height: picked[1] || "1216",
+      from: String(query.get("from") || readDraft().from || ""),
+      gallery: String(query.get("gallery") || query.get("gallery_id") || readDraft().gallery || "site"),
+    };
+  }
+  function buildStudioHandoff(draft) {
+    const studio = new URL("/studio", window.location.origin);
+    const item = draft || collectDraft();
+    if (item.prompt) studio.searchParams.set("prompt", item.prompt);
+    if (item.uc) studio.searchParams.set("uc", item.uc);
+    if (item.steps) studio.searchParams.set("steps", item.steps);
+    if (item.scale) studio.searchParams.set("scale", item.scale);
+    if (item.seed && item.seed !== "-1") studio.searchParams.set("seed", item.seed);
+    if (item.sampler) studio.searchParams.set("sampler", item.sampler);
+    if (item.width) studio.searchParams.set("width", item.width);
+    if (item.height) studio.searchParams.set("height", item.height);
+    if (item.from) studio.searchParams.set("from", item.from);
+    if (item.gallery) studio.searchParams.set("gallery", item.gallery);
+    return studio.pathname + studio.search;
+  }
+  function applyDraft(draft) {
+    const item = draft || {};
+    const prompt = document.querySelector("[data-prompt]");
+    const uc = document.querySelector("[data-uc]");
+    const steps = document.querySelector("[data-steps]");
+    const cfg = document.querySelector("[data-cfg]");
+    const seed = document.querySelector("[data-seed]");
+    const sampler = document.querySelector("[data-sampler]");
+    const size = document.querySelector("[data-size]");
+    if (prompt && item.prompt) prompt.value = item.prompt;
+    if (uc && item.uc) uc.value = item.uc;
+    if (steps && item.steps) steps.value = item.steps;
+    if (cfg && item.scale) cfg.value = item.scale;
+    if (seed && item.seed) seed.value = item.seed;
+    if (sampler && item.sampler) sampler.value = item.sampler;
+    if (size && item.width && item.height) size.value = item.width + "x" + item.height;
+    const source = document.querySelector("[data-source]");
+    if (source) {
+      source.textContent = item.from
+        ? ("将使用作品 #" + item.from + " · " + (item.gallery || "site"))
+        : "文生图 · 需要参考图时从图库点「用此图生成」";
+    }
+    bindCounts();
+  }
+  function renderTimeline(payload) {
+    const host = document.querySelector("[data-timeline]");
+    if (!host) return;
+    const events = (payload && payload.events) || [];
+    if (!events.length) {
+      host.innerHTML = `<div class="ex-event"><i></i><div><b>理解请求</b><small>提示词会带到完整工作台</small></div></div>
+        <div class="ex-event"><i></i><div><b>检查权限</b><small>付费出图要确认，此页不扣费</small></div></div>
+        <div class="ex-event"><i></i><div><b>提交真实队列</b><small>在完整工作台 Ctrl+Enter</small></div></div>`;
+      return;
+    }
+    host.innerHTML = events.slice(-10).reverse().map((item) => {
+      const severity = item.severity === "error" ? " is-error" : item.severity === "warning" ? " is-warning" : "";
+      const progress = item.progress || {};
+      const bar = progress.current != null && progress.total
+        ? `<div class="ex-progress"><span style="width:${Math.max(0, Math.min(100, Math.round((Number(progress.current) / Number(progress.total)) * 100)))}%"></span></div>`
+        : "";
+      return `<div class="ex-event${severity}"><i></i><div><b>${escapeText(item.stage_label || item.type)}</b><small>${escapeText(item.agent_id || "")}</small>${bar}</div></div>`;
+    }).join("");
+  }
+  function renderResults(groups) {
+    const host = document.querySelector("[data-results]");
+    if (!host) return;
+    const rows = groups || [];
+    if (!rows.length) {
+      host.innerHTML = "";
+      return;
+    }
+    host.innerHTML = rows.slice(0, 12).map((item) => {
+      const thumb = item.cover_url || item.cover_thumb || item.source_thumb || "";
+      const href = item.id ? ("/generated#" + encodeURIComponent(item.id)) : "/generated";
+      return `<a class="ex-card" href="${escapeText(href)}">${thumb ? `<img src="${escapeText(thumb)}" alt="" />` : `<div class="ex-ph"></div>`}<div class="ex-meta"><strong>${escapeText(item.source_title || item.id || "生成结果")}</strong></div></a>`;
+    }).join("");
+  }
+  function showConfirm(decided, href) {
+    const host = document.querySelector("[data-confirm-card]");
+    if (!host) return;
+    const butler = "/butler?agent=tomori&return=" + encodeURIComponent(href);
+    host.innerHTML = `<div class="ex-confirm">
+      <b>需要确认非免费生成</b>
+      <p>${escapeText(decided.reason || decided.decision || "付费出图要先确认")}</p>
+      <p>咒语和参数已经带上。此页不会扣费，真正提交仍在完整工作台。</p>
+      <div class="ex-actions">
+        <button class="ex-btn" type="button" data-cancel-confirm>取消</button>
+        <a class="ex-btn" href="${escapeText(butler)}">去管家台确认</a>
+        <a class="ex-btn primary" href="${escapeText(href)}">打开完整工作台</a>
+      </div>
+    </div>`;
+    const cancel = host.querySelector("[data-cancel-confirm]");
+    if (cancel) cancel.addEventListener("click", () => { host.innerHTML = ""; });
+  }
+  async function startGenerate() {
+    const status = document.querySelector("[data-gen-status]");
+    const draft = collectDraft();
+    writeDraft(draft);
+    const href = buildStudioHandoff(draft);
+    if (window.WorkBridge && draft.from) {
+      window.WorkBridge.save({ workId: draft.from, galleryId: draft.gallery, from: "generate" });
+    }
+    if (status) status.textContent = "正在检查生成权限…";
+    let decided = { decision: "CONFIRM", reason: "付费出图需要确认" };
+    try {
+      decided = await window.ApiClient.post("/api/capability/decide", {
+        persona_id: "studio",
+        capability_id: "nai.generate_paid",
+      });
+    } catch (_) { /* still open the real workbench */ }
+    if (decided.decision === "ALLOW") {
+      if (status) status.textContent = "权限已通过，正在打开完整工作台…";
+      window.location.href = href;
+      return;
+    }
+    if (status) status.textContent = "咒语已保存。打开完整工作台提交真实队列，或先去管家台确认。不会自动扣费。";
+    showConfirm(decided, href);
+  }
+  function bindCounts() {
+    const prompt = document.querySelector("[data-prompt]");
+    const uc = document.querySelector("[data-uc]");
+    const promptCount = document.querySelector("[data-prompt-count]");
+    const ucCount = document.querySelector("[data-uc-count]");
+    const steps = document.querySelector("[data-steps]");
+    const cfg = document.querySelector("[data-cfg]");
+    const update = () => {
+      if (promptCount) promptCount.textContent = String((prompt && prompt.value) || "").length + "/1000";
+      if (ucCount) ucCount.textContent = String((uc && uc.value) || "").length + "/1000";
+      const stepsVal = document.querySelector("[data-steps-val]");
+      const cfgVal = document.querySelector("[data-cfg-val]");
+      if (stepsVal && steps) stepsVal.textContent = steps.value;
+      if (cfgVal && cfg) cfgVal.textContent = cfg.value;
+    };
+    if (prompt) prompt.addEventListener("input", update);
+    if (uc) uc.addEventListener("input", update);
+    if (steps) steps.addEventListener("input", update);
+    if (cfg) cfg.addEventListener("input", update);
+    update();
+  }
+  async function loadStudioOptions() {
+    const sampler = document.querySelector("[data-sampler]");
+    const size = document.querySelector("[data-size]");
+    try {
+      const cfg = await window.ApiClient.get("/api/studio/config");
+      const samplers = (cfg && cfg.samplers) || ["k_euler_ancestral"];
+      if (sampler) {
+        const current = sampler.value || "k_euler_ancestral";
+        sampler.innerHTML = samplers.map((name) => `<option value="${escapeText(name)}">${escapeText(name)}</option>`).join("");
+        sampler.value = samplers.indexOf(current) >= 0 ? current : samplers[0];
+      }
+      const presets = (cfg && cfg.size_presets) || [{ width: 832, height: 1216, label: "832 x 1216" }];
+      if (size) {
+        size.innerHTML = presets.map((item) => {
+          const value = String(item.width || 832) + "x" + String(item.height || 1216);
+          return `<option value="${escapeText(value)}">${escapeText(item.label || value)}</option>`;
+        }).join("");
+      }
+      const defaults = (cfg && cfg.defaults) || {};
+      if (defaults.steps && document.querySelector("[data-steps]")) document.querySelector("[data-steps]").value = defaults.steps;
+      if (defaults.scale != null && document.querySelector("[data-cfg]")) document.querySelector("[data-cfg]").value = defaults.scale;
+    } catch (_) {
+      if (sampler && !sampler.options.length) {
+        sampler.innerHTML = '<option value="k_euler_ancestral">k_euler_ancestral</option>';
+      }
+    }
+  }
+  async function loadResults() {
+    const status = document.querySelector("[data-result-status]");
+    try {
+      const data = await window.ApiClient.get("/api/generated");
+      const groups = (data && data.groups) || [];
+      renderResults(groups);
+      if (status) status.textContent = groups.length ? ("最近 " + groups.length + " 组真实结果") : "还没有生成结果。提交后会出现在这里和生成库。";
+    } catch (_) {
+      renderResults([]);
+      if (status) status.textContent = "生成结果暂时读不到，可打开生成库查看。";
+    }
+  }
+  function start() {
+    if (!window.ApiClient) return;
+    const query = params();
+    const draft = Object.assign({}, readDraft(), {
+      from: query.get("from") || readDraft().from || "",
+      gallery: query.get("gallery") || query.get("gallery_id") || readDraft().gallery || "site",
+      prompt: query.get("prompt") || readDraft().prompt || "",
+    });
+    bindCounts();
+    void loadStudioOptions().then(() => applyDraft(draft));
+    document.querySelector("[data-start]").addEventListener("click", () => { void startGenerate(); });
+    document.querySelector("[data-assist]").addEventListener("click", () => {
+      const item = collectDraft();
+      writeDraft(item);
+      window.location.href = buildStudioHandoff(item);
+    });
+    document.querySelector("[data-clear]").addEventListener("click", () => {
+      document.querySelector("[data-prompt]").value = "";
+      document.querySelector("[data-uc]").value = "";
+      writeDraft(collectDraft());
+      bindCounts();
+    });
+    document.querySelector("[data-random]").addEventListener("click", () => {
+      document.querySelector("[data-prompt]").value = "1girl, neon lights, rainy night, looking at viewer";
+      bindCounts();
+    });
+    document.querySelectorAll("[data-mode]").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        const item = collectDraft();
+        writeDraft(item);
+        if (item.from) {
+          event.preventDefault();
+          window.location.href = buildStudioHandoff(item);
+        }
+      });
+    });
+    window.addEventListener("experience-snapshot", (event) => renderTimeline(event.detail || {}));
+    window.ApiClient.get("/api/experience/snapshot").then(renderTimeline).catch(() => renderTimeline({}));
+    void loadResults();
+  }
+  window.buildStudioHandoff = buildStudioHandoff;
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})();

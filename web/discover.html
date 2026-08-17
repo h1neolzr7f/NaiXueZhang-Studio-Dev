@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>在线发现 · Nai学长工作室</title>
-  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=d33502d3a0" />
+  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=1069a21e9e" />
   <link rel="stylesheet" href="/assets/studio-theme.css?v=51de05869a" />
 </head>
 <body data-page="discover">
@@ -121,6 +121,16 @@
         <label class="ex-checkrow"><input id="pixivBrowserMode" type="checkbox" /> 用浏览器打开页面（更稳，需本机 Chrome/Edge）</label>
         <label class="ex-checkrow"><input id="pixivThumbOnly" type="checkbox" checked /> 多页作品只留第一张大图，其余留小图</label>
       </details>
+      <details class="ex-advanced">
+        <summary>高级采集（甩手 / 预设 / 重启）</summary>
+        <p class="ex-empty">这些会动本机爬虫进程。甩手采集按当前已保存任务开跑并打开守护。</p>
+        <div class="ex-actions">
+          <button class="ex-btn" type="button" data-pixiv-autopilot>甩手采集</button>
+          <button class="ex-btn" type="button" data-pixiv-arknights>更新明日方舟</button>
+          <button class="ex-btn" type="button" data-pixiv-restart>重启采集进程</button>
+        </div>
+        <p class="ex-empty" data-pixiv-ops-msg></p>
+      </details>
     </section>
 
     <section class="ex-panel ex-crawl" data-site-panel="aitag" hidden>
@@ -164,6 +174,7 @@
               <option value="day">近一天</option>
               <option value="week">近一周</option>
               <option value="month">近一月</option>
+              <option value="current">当前时段</option>
             </select>
           </label>
         </div>
@@ -269,6 +280,6 @@
   <script src="/assets/shared/api-client.js?v=2a8a70c746"></script>
   <script src="/assets/shared/site-nav.js?v=3846bb4a62"></script>
   <script src="/assets/pixiv-intake-control.js?v=ae372e5516"></script>
-  <script src="/assets/discover.js?v=923c38eab6"></script>
+  <script src="/assets/discover.js?v=dcced834ae"></script>
 </body>
 </html>

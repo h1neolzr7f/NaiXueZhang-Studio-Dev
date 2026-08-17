@@ -127,6 +127,12 @@
       const quarantined = Number(report.works_quarantined || 0);
       setLiveChip("[data-pixiv-live-quar]", "隔离 " + quarantined, quarantined > 0);
       setLiveChip("[data-pixiv-live-updated]", "更新 " + String(report.updated_at || "—").replace("T", " ").slice(5, 19));
+      const watchdog = document.querySelector("[data-pixiv-watchdog]");
+      if (watchdog) {
+        const completed = String(report.status || "") === "completed" && !running;
+        watchdog.disabled = completed;
+        if (completed) watchdog.title = "本轮已完成，守护已不必再开。再开采集会重新开始。";
+      }
       const counts = document.querySelector("[data-pixiv-live-counts]");
       if (counts) {
         const cells = [
@@ -156,6 +162,11 @@
         if (history) {
           bits.push("上一轮 " + String(history.status || "-") + " · 接受 " + Number(history.works_accepted || 0) + " · 失败 " + Number(history.works_failed || 0));
         }
+        const failures = Object.entries(report.failure_kinds || {})
+          .map(([kind, count]) => kind + " × " + count)
+          .slice(0, 3)
+          .join(" · ");
+        if (failures) bits.push("失败类型 " + failures);
         note.textContent = bits.length ? bits.join("；") : (running ? "正在按任务采集，计数会自己涨。" : "进度留在本页，不用去别处看。");
       }
     }
@@ -228,7 +239,7 @@
     let url = "/api/nai/aitag/search?q=" + encodeURIComponent(query)
       + "&sort=" + encodeURIComponent(sort || "new")
       + "&page=" + page
-      + "&page_size=24&nai_only=true&safe_only=true";
+      + "&page_size=60&nai_only=true&safe_only=true";
     if (filters.creator) url += "&creator=" + encodeURIComponent(filters.creator);
     if (filters.model) url += "&model=" + encodeURIComponent(filters.model);
     if (filters.tags) url += "&tags=" + encodeURIComponent(filters.tags);
@@ -271,7 +282,10 @@
     setAitagStatus(page > 1 ? "正在加载下一页…" : "正在读收藏…");
     let data = null;
     try {
-      data = await window.ApiClient.get("/api/nai/aitag/favorites/works?page=" + page + "&page_size=24");
+      const form = document.querySelector("[data-aitag-search]");
+      const q = form && form.q ? String(form.q.value || "").trim() : "";
+      data = await window.ApiClient.get("/api/nai/aitag/favorites/works?page=" + page + "&page_size=24"
+        + (q ? "&q=" + encodeURIComponent(q) : ""));
     } catch (error) {
       setAitagStatus("收藏读取失败：" + (error.message || error));
       return;
@@ -295,7 +309,7 @@
     });
     const form = document.querySelector("[data-aitag-search]");
     const advanced = document.querySelector("[data-aitag-advanced]");
-    if (form) form.hidden = aitagView !== "search";
+    if (form) form.hidden = false;
     if (advanced) advanced.hidden = aitagView !== "search";
     items = [];
     aitagHasMore = false;
@@ -338,16 +352,37 @@
       setAitagStatus("先点卡片选中作品，再导入。");
       return;
     }
+    if (!window.confirm("将导入 " + ids.length + " 项到标签资产。多角色作品不会默认导第一个槽，请到详情里选。")) return;
+    const button = document.querySelector("[data-aitag-import]");
+    if (button) button.disabled = true;
     let ok = 0;
+    let needSlot = 0;
+    const failed = [];
     for (const id of ids) {
       try {
-        await importOne(id);
+        const payload = await window.ApiClient.get("/api/nai/aitag/work/" + encodeURIComponent(id));
+        const candidates = (payload && payload.character_candidates) || [];
+        if (candidates.length > 1) {
+          needSlot += 1;
+          continue;
+        }
+        const extra = candidates.length === 1 ? {
+          candidate_id: candidates[0].candidate_id || "",
+          image_index: Number(candidates[0].image_index || 0),
+          slot_index: Number(candidates[0].slot_index || 0),
+        } : {};
+        await importOne(id, extra);
         ok += 1;
-      } catch (_) { /* keep going */ }
+      } catch (error) {
+        failed.push(id + "：" + (error.message || error));
+      }
     }
-    setAitagStatus(ok
-      ? ("已导入 " + ok + " 项。打开「标签资产」就能用。")
-      : "这次没有导入成功。可以换几张再试。");
+    const bits = [];
+    if (ok) bits.push("已导入 " + ok + " 项。打开「标签资产」就能用。");
+    if (needSlot) bits.push(needSlot + " 项有多个角色槽，请点「详」选择后再导入。");
+    if (failed.length) bits.push("失败 " + failed.length + " 项：" + failed.slice(0, 3).join("；"));
+    setAitagStatus(bits.join(" ") || "这次没有导入成功。可以换几张再试。");
+    if (button) button.disabled = false;
   }
   async function favoriteSelected() {
     const ids = Array.from(selected);
@@ -355,15 +390,22 @@
       setAitagStatus("先点卡片选中作品，再收藏。");
       return;
     }
+    const button = document.querySelector("[data-aitag-fav]");
+    if (button) button.disabled = true;
     let ok = 0;
+    const failed = [];
     for (const id of ids) {
       try {
         await toggleFavorite(id);
         ok += 1;
-      } catch (_) { /* keep going */ }
+      } catch (error) {
+        failed.push(id + "：" + (error.message || error));
+      }
     }
-    setAitagStatus(ok ? ("已记下 " + ok + " 项位置，没有下载原图。") : "收藏失败。");
+    setAitagStatus((ok ? ("已记下 " + ok + " 项位置，没有下载原图。") : "收藏失败。")
+      + (failed.length ? " 失败 " + failed.length + " 项：" + failed.slice(0, 2).join("；") : ""));
     if (aitagView === "favorites") void loadAitagFavorites(1, false);
+    if (button) button.disabled = false;
   }
   function closeDetail() {
     const modal = document.querySelector("[data-aitag-detail]");
@@ -589,6 +631,7 @@
       note: item.note || "",
       thumb: item.thumb || "",
       image: item.image || item.thumb || "",
+      source_url: item.source_url || "",
       collected: true,
     }));
     tcHasMore = false;
@@ -657,7 +700,7 @@
         <button class="ex-btn primary" type="button" data-tc-send>送到生成台</button>
         <button class="ex-btn" type="button" data-tc-copy>复制提示词</button>
         <button class="ex-btn" type="button" data-tc-collect>${item.collected ? "从提示词库移除" : "收进提示词库"}</button>
-        <a class="ex-btn" href="${escapeText(item.source_url || "")}" target="_blank" rel="noreferrer noopener">查看原站</a>
+        ${item.source_url ? `<a class="ex-btn" href="${escapeText(item.source_url)}" target="_blank" rel="noreferrer noopener">查看原站</a>` : ""}
       </div>
       <p class="ex-empty" data-tc-msg></p>
     `;
@@ -696,7 +739,10 @@
       setTcStatus("先点卡片选中词条，再收进提示词库。");
       return;
     }
+    const button = document.querySelector("[data-tagcloud-collect]");
+    if (button) button.disabled = true;
     let ok = 0;
+    const failed = [];
     for (const key of keys) {
       const item = findTagcloudItem(key);
       if (!item) continue;
@@ -706,9 +752,13 @@
           entry_id: item.id,
         });
         if (result && result.collected) ok += 1;
-      } catch (_) { /* keep going */ }
+      } catch (error) {
+        failed.push((item.title || key) + "：" + (error.message || error));
+      }
     }
-    setTcStatus(ok ? ("已收进提示词库 " + ok + " 条。点「提示词库」标签查看。") : "这次没有收藏成功。可以换几条再试。");
+    setTcStatus((ok ? ("已收进提示词库 " + ok + " 条。点「提示词库」标签查看。") : "这次没有收藏成功。可以换几条再试。")
+      + (failed.length ? " 失败 " + failed.length + " 条：" + failed.slice(0, 2).join("；") : ""));
+    if (button) button.disabled = false;
   }
 
   function buildBookmarklet(token) {
@@ -787,6 +837,34 @@
     once?.addEventListener("click", (event) => {
       confirmStart(event, "只跑一轮 Pixiv 采集？\n\n跑完会停。只有 NovelAI 作品会进图库。");
     }, true);
+    document.getElementById("pixivStop")?.addEventListener("click", (event) => {
+      if (window.confirm("停止当前 Pixiv 采集？已入库的图会保留。")) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+  }
+  async function runPixivOp(kind) {
+    const msg = document.querySelector("[data-pixiv-ops-msg]");
+    const confirms = {
+      autopilot: "按当前已保存的 Pixiv 任务开始甩手采集，并打开守护？",
+      arknights: "把任务改成明日方舟标签并开始采集？会覆盖当前搜索范围。",
+      restart: "重启采集进程？进行中的一轮会中断，任务配置会保留。",
+    };
+    if (!window.confirm(confirms[kind] || "继续？")) return;
+    if (msg) msg.textContent = "正在执行…";
+    try {
+      const path = kind === "autopilot"
+        ? "/api/crawler/autopilot"
+        : kind === "arknights"
+          ? "/api/crawler/arknights/update"
+          : "/api/crawler/restart";
+      const body = kind === "autopilot" ? { target: "pixiv" } : (kind === "arknights" ? { restart: true } : {});
+      const result = await window.ApiClient.post(path, body);
+      if (msg) msg.textContent = (result && (result.message || result.ok)) ? (result.message || "已提交。进度看上方计数。") : "已提交。进度看上方计数。";
+      void refreshPixivLive();
+    } catch (error) {
+      if (msg) msg.textContent = "失败：" + (error.message || error);
+    }
   }
   function start() {
     if (!window.ApiClient) return;
@@ -801,7 +879,9 @@
       form.addEventListener("submit", (event) => {
         event.preventDefault();
         const data = new FormData(form);
-        void searchAitag(String(data.get("q") || ""), String(data.get("sort") || "new"), 1, false);
+        const q = String(data.get("q") || "");
+        if (aitagView === "favorites") void loadAitagFavorites(1, false);
+        else void searchAitag(q, String(data.get("sort") || "new"), 1, false);
       });
     }
     document.querySelectorAll("[data-aitag-view]").forEach((button) => {
@@ -895,6 +975,9 @@
     guardPixivStart();
     void setupBookmarklet();
     document.querySelector("[data-pixiv-watchdog]")?.addEventListener("click", () => { void toggleWatchdog(); });
+    document.querySelector("[data-pixiv-autopilot]")?.addEventListener("click", () => { void runPixivOp("autopilot"); });
+    document.querySelector("[data-pixiv-arknights]")?.addEventListener("click", () => { void runPixivOp("arknights"); });
+    document.querySelector("[data-pixiv-restart]")?.addEventListener("click", () => { void runPixivOp("restart"); });
     window.addEventListener("pixiv-intake-report", (event) => {
       pixivLiveEventAt = Date.now();
       renderPixivLive((event && event.detail) || {});
@@ -909,7 +992,11 @@
       void refreshPixivLive();
       void refreshWatchdog();
     }, 5000);
-    if (query.get("site") === "aitag" && query.get("q") && form) {
+    if (query.get("q") && query.get("site") === "tagcloud") {
+      void searchTagcloud(query.get("q"), query.get("codex") || "", 1, false);
+    } else if (query.get("q") && query.get("site") !== "pixiv") {
+      showSite("aitag");
+      if (form) form.q.value = query.get("q");
       void searchAitag(query.get("q"), "new", 1, false);
     }
   }

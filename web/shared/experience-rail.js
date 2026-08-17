@@ -228,7 +228,11 @@
     if (photo) photo.src = PORTRAITS[persona] || PORTRAITS.library;
     const body = root.querySelector("[data-agent-body]");
     const bits = [];
-    bits.push(`<div class="ex-bubble">${workspace === "acquire" ? "采集只对两个站：Pixiv 开爬虫，AITag 搜到再入库。不是跟我对话。" : (events.length ? "当前工作流独立于聊天记录。" : "有什么我可以帮你的吗？ — Nai学长助手")}</div>`);
+    const states = payload.character_states || {};
+    const stateKey = persona === "service" ? "support" : (persona || workspace);
+    const char = states[stateKey] || states[persona] || {};
+    if (char.label) root.querySelector("[data-agent-status]").textContent = char.label;
+    bits.push(`<div class="ex-bubble">${workspace === "acquire" ? "采集三个来源：Pixiv 开爬虫，AITag 搜作品，法典图鉴搜提示词。不是跟我对话。" : (events.length ? "当前工作流独立于聊天记录。" : "有什么我可以帮你的吗？ — Nai学长助手")}</div>`);
     const waiting = events.find((item) => item.type === "authorization.required");
     if (waiting) {
       bits.push(`<div class="ex-confirm"><b>需要确认非免费生成</b><p>${waiting.stage_label || waiting.type}</p><p>这里不会伪造积分，也不会直接扣费。</p><a href="/butler">去管家台确认</a></div>`);
@@ -240,10 +244,10 @@
         <div class="ex-stepper">
           <div class="row is-on"><i></i><div><b>先选站点</b><small>Pixiv 或 AITag，点中间大卡</small></div></div>
           <div class="row ${found ? "is-on" : ""}"><i></i><div><b>Pixiv 填标签开爬</b><small>可先试跑，再开始采集</small></div></div>
-          <div class="row ${stored ? "is-on" : ""}"><i></i><div><b>AITag 搜了再勾选</b><small>${stored ? "已入库 " + stored + " 项" : "导入到标签资产"}</small></div></div>
+          <div class="row ${stored ? "is-on" : ""}"><i></i><div><b>AITag / 法典图鉴勾选</b><small>${stored ? "已入库 " + stored + " 项" : "作品进标签资产，词条进提示词库"}</small></div></div>
           <div class="row"><i></i><div><b>去图库看</b><small>采集结果在「我的图库」</small></div></div>
         </div>
-        <div class="ex-flow-mini"><span>选站</span><span>Pixiv 爬虫</span><span>AITag 搜索</span><span>入库 ${stored || 0}</span></div>
+        <div class="ex-flow-mini"><span>选站</span><span>Pixiv 爬虫</span><span>网页挑选</span><span>入库 ${stored || 0}</span></div>
       </div>
       <div class="ex-tip">我不会替你对话采集。完整日志在「爬虫」页，和这里是同一套进程。</div>
       <div class="ex-step"><b>本地图库空间</b><div class="ex-meter"><i data-storage-meter style="width:8%"></i></div><small data-storage-label>读取本机占用中</small><a class="ex-btn" href="/library">管理图库</a></div>`);
@@ -252,6 +256,13 @@
       bits.push(`<div class="ex-suggest"><b>智能检索</b><p>用顶栏 Ctrl+K 或左侧标签过滤本机资产。</p></div>
         <div class="ex-suggest"><b>相似 / 重复</b><p>点选作品后，右侧详情会给出谱系和下一步。</p></div>`);
     }
+    (payload.handoffs || []).slice(0, 3).forEach((item) => {
+      const hrefs = { acquire: "/discover", library: "/library", studio: "/generate", service: "/tools", support: "/tools" };
+      const href = hrefs[item.to_persona] || "/desk";
+      const intent = String(item.user_intent || item.to_persona || "待交接")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      bits.push(`<div class="ex-suggest"><b>待交接</b><p>${intent}</p><a class="ex-btn" href="${href}">去对应工作台</a></div>`);
+    });
     (payload.proactive || []).slice(0, 3).forEach((item) => {
       const text = item.text || item.message || item.title || "";
       if (text) bits.push(`<div class="ex-suggest"><b>${item.level || "建议"}</b><p>${text}</p></div>`);
@@ -289,13 +300,26 @@
     if (label) label.textContent = String(hours).padStart(2, "0") + " 小时 " + String(remain).padStart(2, "0") + " 分钟 / 10 小时";
     if (meter) meter.style.width = Math.min(100, (mins / 600) * 100) + "%";
   }
+  let lastHandoffs = [];
+  function applySnapshot(payload) {
+    const next = payload || {};
+    if (Array.isArray(next.handoffs)) lastHandoffs = next.handoffs;
+    else next.handoffs = lastHandoffs;
+    renderNav();
+    renderAgent(next);
+    window.dispatchEvent(new CustomEvent("experience-snapshot", { detail: next }));
+  }
   async function refresh() {
     renderSession();
     try {
       const payload = await window.ApiClient.get("/api/experience/snapshot");
-      renderNav();
-      renderAgent(payload || {});
-      window.dispatchEvent(new CustomEvent("experience-snapshot", { detail: payload || {} }));
+      try {
+        const extra = await window.ApiClient.get("/api/experience/handoffs");
+        payload.handoffs = (extra && extra.handoffs) || [];
+      } catch (_) {
+        payload.handoffs = [];
+      }
+      applySnapshot(payload || {});
     } catch (error) {
       root.querySelector("[data-agent-body]").innerHTML = `<p class="ex-empty">状态暂时读不到，页面功能仍可手动使用。</p>`;
     }
@@ -322,14 +346,23 @@
     const q = String(new FormData(search).get("q") || "").trim();
     const path = (window.location.pathname || "/").replace(/\/+$/, "") || "/";
     if (path === "/discover") {
-      const box = document.querySelector(".ex-page [data-search] input[name='q']");
+      const panel = document.querySelector("[data-site-panel]:not([hidden])");
+      const site = (panel && panel.getAttribute("data-site-panel")) || "pixiv";
+      let box = null;
+      if (site === "tagcloud") box = document.querySelector("[data-tagcloud-search] input[name='q']");
+      else if (site === "aitag") box = document.querySelector("[data-aitag-search] input[name='q']");
+      if (!box && site === "pixiv") {
+        const tab = document.querySelector('[data-site="aitag"]');
+        if (tab) tab.click();
+        box = document.querySelector("[data-aitag-search] input[name='q']");
+      }
       if (box) {
         box.value = q;
         const form = box.closest("form");
         if (form) form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
         return;
       }
-      window.location.href = q ? `/discover?q=${encodeURIComponent(q)}` : "/discover";
+      window.location.href = q ? `/discover?site=aitag&q=${encodeURIComponent(q)}` : "/discover";
       return;
     }
     if (path === "/generate" || path === "/studio") {
@@ -337,6 +370,16 @@
       if (prompt && q) {
         prompt.value = q;
         prompt.dispatchEvent(new Event("input", { bubbles: true }));
+        return;
+      }
+    }
+    const pageSearch = document.querySelector(".ex-page [data-search]");
+    if (pageSearch && pageSearch !== search) {
+      const box = pageSearch.querySelector("input[name='q'], input[type='search']");
+      if (box) {
+        box.value = q;
+        const form = pageSearch.matches("form") ? pageSearch : box.closest("form");
+        if (form) form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
         return;
       }
     }
@@ -401,9 +444,19 @@
       }
     });
   }
+  function startEventStream() {
+    if (typeof EventSource === "undefined") return;
+    try {
+      const stream = new EventSource("/api/experience/events/stream");
+      stream.addEventListener("experience", (event) => {
+        try { applySnapshot(JSON.parse(event.data || "{}")); } catch (_) { /* keep last */ }
+      });
+    } catch (_) { /* 4s poll remains the fallback */ }
+  }
   renderNav();
   guardPortraitImages();
   enhanceClassicSurfaces();
+  startEventStream();
   void refresh();
   window.setInterval(() => {
     if (document.hidden || agentOff()) return;

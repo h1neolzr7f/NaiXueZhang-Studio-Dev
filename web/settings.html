@@ -9,10 +9,11 @@
   <link rel="stylesheet" href="/assets/shared/site-nav.css?v=756cdf2a38" />
   <link rel="stylesheet" href="/assets/shared/motion.css?v=8cc6bd1e71" />
   <link rel="stylesheet" href="/assets/settings.css?v=1b2e12e3e8" />
+  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=1069a21e9e" />
   <link rel="stylesheet" href="/assets/studio-theme.css?v=51de05869a" />
 <link rel="icon" type="image/x-icon" href="/favicon.ico?v=3" />
 </head>
-<body class="settings-body">
+<body class="settings-body" data-page="settings">
   <div id="siteNav"></div>
   <main class="settings-shell">
     <header class="settings-hero">
@@ -76,6 +77,24 @@
           <input id="assistantLive2dModel" placeholder="默认按助手情景自动换装，无需填写" value="" />
         </label>
       </div>
+    </section>
+
+    <section class="settings-section" id="experience-memories">
+      <div class="section-heading">
+        <div><span class="step">1b</span><h2>体验层记忆</h2></div>
+        <p>只存偏好，不能授权付费或改权限。忘记后不再出现在助手提示里。</p>
+      </div>
+      <div class="settings-grid two">
+        <label class="field-card wide">
+          <span>记下一条偏好</span>
+          <input id="experienceMemoryText" maxlength="200" placeholder="例如：竖图优先、少用高饱和" />
+        </label>
+      </div>
+      <div class="ai-setup-actions">
+        <button class="settings-button secondary" type="button" id="experienceMemoryAdd">记住这条</button>
+        <span id="experienceMemoryMessage"></span>
+      </div>
+      <div id="experienceMemoryList" class="ex-memory-list"></div>
     </section>
 
     <section class="settings-section" id="ai-service">
@@ -227,6 +246,6 @@
   <script src="/assets/shared/site-nav.js?v=3846bb4a62"></script>
   <script src="/assets/shared/quick-dock.js?v=5ba3a6158c"></script>
   <script src="/assets/shared/api-client.js?v=2a8a70c746"></script>
-  <script src="/assets/settings.js?v=687d54d0b3"></script>
+  <script src="/assets/settings.js?v=4bc9baaec4"></script>
 </body>
 </html>

@@ -726,6 +726,17 @@ details.ex-advanced summary { cursor: pointer; color: var(--ex-muted); }
 }
 .ex-modal-head h3 { margin: 0; font-size: 16px; }
 .ex-modal-body { padding: 14px 16px 18px; }
+.ex-drop {
+  margin: 0 0 12px;
+  padding: 16px;
+  border: 1px dashed var(--ex-line);
+  border-radius: 14px;
+  background: rgba(16, 24, 42, 0.55);
+  color: var(--ex-muted);
+}
+.ex-drop.is-on { border-color: var(--ex-cyan); color: var(--ex-text); }
+.ex-memory-list { display: grid; gap: 8px; margin-top: 12px; }
+.ex-memory-list .field-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ex-portrait-fallback {
   display: grid;
   place-items: center;

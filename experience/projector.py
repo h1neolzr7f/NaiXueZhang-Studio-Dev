@@ -172,17 +172,20 @@ def _live_companion_events() -> list[dict[str, Any]]:
         return []
 
 
+_UNSET = object()
+
+
 def project_snapshot(
     *,
     butler_tasks: list[dict[str, Any]] | None = None,
-    generation_job: dict[str, Any] | None = None,
+    generation_job: Any = _UNSET,
     messages: list[dict[str, Any]] | None = None,
     companion_events: list[dict[str, Any]] | None = None,
     extra_events: list[ExperienceEvent] | None = None,
     revision: int | None = None,
 ) -> ExperienceSnapshot:
     tasks = list(butler_tasks) if butler_tasks is not None else _live_butler_tasks()[0]
-    job = generation_job if generation_job is not None else _live_generation_job()[0]
+    job = _live_generation_job()[0] if generation_job is _UNSET else generation_job
     chat = list(messages) if messages is not None else _live_messages()
     proactive = list(companion_events) if companion_events is not None else _live_companion_events()
     events: list[ExperienceEvent] = []
@@ -198,7 +201,7 @@ def project_snapshot(
         events.extend(extra_events)
     if revision is None:
         live_tasks_rev = _live_butler_tasks()[1] if butler_tasks is None else len(tasks)
-        live_job_rev = _live_generation_job()[1] if generation_job is None else 0
+        live_job_rev = _live_generation_job()[1] if generation_job is _UNSET else 0
         revision = live_tasks_rev * 1_000_003 + live_job_rev + len(events)
     specialists = [item.to_dict() for item in list_manifests()]
     character_states = {

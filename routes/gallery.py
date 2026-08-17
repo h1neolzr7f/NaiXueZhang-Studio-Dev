@@ -1186,11 +1186,17 @@ def studio_page() -> FileResponse:
     return _serve_web_page("studio.html")
 
 
+@router.get("/desk")
+def desk_page() -> FileResponse:
+    return _serve_web_page("desk.html")
+
+
 # React /app/* shells are incomplete clones. Send people to the classic pages
 # that already have thumbnails, Live2D 小镜, crawler tables, and drafts.
 _APP_CLASSIC_PAGES = {
     "": "/",
     "gallery": "/",
+    "desk": "/desk",
     "studio": "/studio",
     "generated": "/generated",
     "butler": "/butler",

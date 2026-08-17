@@ -40,7 +40,7 @@ No expansion. Manifest claims are not authority. Orchestrator still cannot execu
 
 ## UI / E2E evidence
 
-Two autonomous visual rounds via Edge headless. Acquire workspace opens Online Discovery. Rail skipped on Butler. Agent-off supported.
+Four visual rounds. Round 4 follows the user mockups: `/desk` dashboard, left sidebar, top search, right specialist panel. Classic 8-nav is the agent-off fallback. Playwright shell loop passed with Edge.
 
 ## Performance / memory
 

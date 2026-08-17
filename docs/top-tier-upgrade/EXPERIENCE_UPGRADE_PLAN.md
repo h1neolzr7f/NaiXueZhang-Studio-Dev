@@ -15,7 +15,7 @@ Minimal integration over the Windows RC baseline. No second engine.
 3. Layered memory metadata on top of `companion_state` (no vector DB).
 4. Bounded proactive classifier: OBSERVE / SUGGEST / CONFIRM_REQUIRED / DENY. Never EXECUTE paid/delete.
 5. Product Typed Handoff + scoped delegation. Gateway still decides.
-6. Workspace-oriented rail: four specialist chips link to existing pages.
+6. Workspace-oriented chrome: `/desk` dashboard + sidebar/topbar/agent panel mapping to existing pages. Classic 8-nav remains agent-off.
 
 ## Out of scope this commit series
 

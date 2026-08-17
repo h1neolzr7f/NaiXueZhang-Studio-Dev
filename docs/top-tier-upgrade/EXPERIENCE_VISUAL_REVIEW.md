@@ -39,3 +39,17 @@ Fixes:
 - First-run banners + legal notice still make the home page dense
 - Live2D subjective feel not re-scored
 - Optional Playwright loop still skipped unless `EXPERIENCE_PLAYWRIGHT=1`
+
+## Round 4
+
+User-provided mockups: dashboard / online discovery / library / generation desk.
+
+Implemented:
+
+- `#experienceShell` with sidebar, Ctrl+K search, right specialist panel, status bar
+- `/desk` dashboard: four specialist cards, Acquire→Library→Swap→Generate flow, real task/queue/storage numbers
+- Notice sits in the center column, not over the agent panel
+- Agent-off restores classic 8-item top nav
+- No Pro/membership CTA
+
+Still not copied from the mockups: paid membership, window min/max/close, four unique anime portraits (no extra cast assets this round).

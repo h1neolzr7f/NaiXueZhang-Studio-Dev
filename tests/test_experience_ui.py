@@ -32,6 +32,15 @@ class ExperienceUiTests(unittest.TestCase):
         self.assertIn("prefers-reduced-motion", css)
         self.assertIn("ExperienceCharacter", js)
         self.assertIn("situationFromTask", js)
+        self.assertIn("aria-current", js)
+        self.assertIn("workspace_label", js)
+        self.assertIn("experience-shell-on", js)
+        self.assertIn("experienceShell", js)
+        self.assertIn("/desk", js)
+        self.assertIn("工作台", js)
+        self.assertIn("experience-shell-on .responsibility-notice", css)
+        self.assertIn("experience-shell-on", css)
+        self.assertIn('document.body.classList.remove("experience-shell-on"', js)
 
     def test_online_workspace_query_opens_acquire_surface(self) -> None:
         js = (ROOT / "web" / "online-discover.js").read_text(encoding="utf-8")
@@ -61,6 +70,10 @@ class ExperienceUiTests(unittest.TestCase):
             json={"persona_id": "acquire", "capability_id": "nai.generate_paid"},
         )
         self.assertEqual(paid.json()["decision"], "DENY")
+        desk = client.get("/desk")
+        self.assertEqual(desk.status_code, 200)
+        self.assertIn("data-page=\"desk\"", desk.text)
+        self.assertIn("创作工作流", desk.text)
 
 
 if __name__ == "__main__":

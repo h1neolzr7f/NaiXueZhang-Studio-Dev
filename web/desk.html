@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#070a11" />
+  <title>工作台 · Nai学长工作室</title>
+  <link rel="stylesheet" href="/assets/shared/site-nav.css?v=756cdf2a38" />
+  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=5f4015f7cb" />
+  <link rel="stylesheet" href="/assets/studio-theme.css?v=51de05869a" />
+</head>
+<body data-ui="nai-desk" data-page="desk">
+  <div id="siteNav"></div>
+  <main class="ex-desk">
+    <section class="ex-hello">
+      <h1 data-hello>晚上好</h1>
+      <p>多个智能体协同创作，让想象力落地成图。关闭助手后仍可使用完整工作台。</p>
+    </section>
+    <section class="ex-agent-grid" data-agent-cards></section>
+    <section class="ex-flow">
+      <h3>创作工作流</h3>
+      <div class="ex-flow-row">
+        <a href="/?workspace=acquire">在线发现</a>
+        <span>→</span>
+        <a href="/">入库</a>
+        <span>→</span>
+        <a href="/remix">换角色</a>
+        <span>→</span>
+        <a href="/studio">生成</a>
+        <a href="/queue">查看队列</a>
+      </div>
+    </section>
+    <section class="ex-desk-grid">
+      <div class="ex-desk-col">
+        <h3>任务概览</h3>
+        <div data-tasks></div>
+      </div>
+      <div class="ex-desk-col">
+        <h3>生成队列</h3>
+        <div class="ex-donut" data-donut aria-hidden="true"></div>
+        <p data-queue>还没有生成任务</p>
+      </div>
+      <div class="ex-desk-col">
+        <h3>图库统计</h3>
+        <div class="ex-stat-num" data-stat-count>—</div>
+        <p data-stat-label>以本机维护台读数为准</p>
+      </div>
+    </section>
+    <section class="ex-quick">
+      <h3>快捷操作</h3>
+      <a href="/studio">新建项目</a>
+      <a href="/codex">导入图片</a>
+      <a href="/">打开图库</a>
+      <a href="/remix">角色管理</a>
+      <a href="/studio">提示词助手</a>
+      <a href="/queue">工作流队列</a>
+    </section>
+  </main>
+  <script src="/assets/shared/api-client.js?v=2a8a70c746"></script>
+  <script src="/assets/shared/site-nav.js?v=a18838b002"></script>
+  <script src="/assets/desk.js?v=95a9d96c4e"></script>
+</body>
+</html>

@@ -69,6 +69,17 @@ class ExperienceEventPlaneTests(unittest.TestCase):
         self.assertEqual(snapshot.events[0].type, "generation.billing_uncertain")
         self.assertEqual(snapshot.events[0].severity, "warning")
 
+    def test_explicit_none_job_does_not_pull_live_generation(self) -> None:
+        snapshot = project_snapshot(
+            butler_tasks=[],
+            generation_job=None,
+            messages=[],
+            companion_events=[],
+            extra_events=[make_event("provider.results", source="acquire", subject="search-iso")],
+            revision=9,
+        )
+        self.assertEqual([item.type for item in snapshot.events], ["provider.results"])
+
     def test_event_catalog_covers_required_families(self) -> None:
         for name in (
             "agent.handoff",

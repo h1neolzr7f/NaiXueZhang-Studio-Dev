@@ -324,26 +324,35 @@ class TagcloudClient:
         ]
         if wanted and not codexes:
             raise ValueError("未知的法典 ID")
-        matched: list[dict[str, Any]] = []
+        matched: list[tuple[int, dict[str, Any]]] = []
         for codex in codexes:
             for entry in self.get_entries(codex["id"]):
+                score = 0
                 if tokens:
-                    haystack = " ".join(
-                        [
-                            str(entry.get("title") or ""),
-                            str(entry.get("tags") or ""),
-                            " ".join(str(part) for part in (entry.get("path") or [])),
-                            str(entry.get("note") or ""),
-                        ]
-                    ).casefold()
+                    title_text = str(entry.get("title") or "").casefold()
+                    path_text = " ".join(str(part) for part in (entry.get("path") or [])).casefold()
+                    tags_text = str(entry.get("tags") or "").casefold()
+                    note_text = str(entry.get("note") or "").casefold()
+                    haystack = " ".join([title_text, path_text, tags_text, note_text])
                     if not all(token in haystack for token in tokens):
                         continue
+                    # 标题命中权重最高，其次分类路径，最后才是提示词与注释正文。
+                    for token in tokens:
+                        score += 3 * (token in title_text)
+                        score += 2 * (token in path_text)
+                        score += 1 * (token in tags_text)
+                        score += 1 * (token in note_text)
                 item = self.serialize_entry(codex, entry)
                 if item is not None:
-                    matched.append(item)
-        total = len(matched)
+                    if item["is_new"]:
+                        score += 1
+                    matched.append((score, item))
+        if tokens:
+            matched.sort(key=lambda pair: -pair[0])
+        items_all = [item for _, item in matched]
+        total = len(items_all)
         start = (page - 1) * page_size
-        items = matched[start : start + page_size]
+        items = items_all[start : start + page_size]
         return {
             "items": items,
             "total": total,

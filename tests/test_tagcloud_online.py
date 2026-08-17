@@ -71,6 +71,14 @@ _ENTRIES = {
             "image": "composition_style_0002.jpg",
             "assetRev": "aaaa1111bbbb2222",
         },
+        {
+            "id": "composition_style_0003",
+            "title": "运河边",
+            "path": ["构图风格"],
+            "tags": "canal, 樱花 petals on water",
+            "isNew": False,
+            "image": "composition_style_0003.jpg",
+        },
     ],
     "suozhang_r18": [
         {
@@ -125,9 +133,10 @@ class TagcloudClientTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             client = _make_client(tmp)
             result = client.search(query="樱花")
-            self.assertEqual(result["total"], 1)
+            self.assertEqual(result["total"], 2)
             item = result["items"][0]
             self.assertEqual(item["id"], "composition_style_0002")
+            self.assertEqual(result["items"][1]["id"], "composition_style_0003")
             self.assertEqual(item["codex_id"], "composition_style")
             self.assertTrue(item["thumb"].startswith("https://assets.quicktagcloud.com/images/composition_style/"))
             self.assertIn("?v=aaaa1111bbbb2222", item["thumb"])
@@ -144,10 +153,12 @@ class TagcloudClientTests(unittest.TestCase):
             http = _HTTP()
             client = TagcloudClient(http_client=http, cache_root=Path(tmp))
             first = client.search(query="", codex_id="composition_style", page=1, page_size=1)
-            self.assertEqual(first["total"], 2)
+            self.assertEqual(first["total"], 3)
             self.assertTrue(first["has_more"])
             second = client.search(query="", codex_id="composition_style", page=2, page_size=1)
-            self.assertFalse(second["has_more"])
+            self.assertTrue(second["has_more"])
+            third = client.search(query="", codex_id="composition_style", page=3, page_size=1)
+            self.assertFalse(third["has_more"])
             calls_before = len(http.calls)
             client.search(query="", codex_id="composition_style", page=1, page_size=1)
             self.assertEqual(len(http.calls), calls_before)
@@ -252,7 +263,7 @@ class TagcloudRouteTests(unittest.TestCase):
         resp = client.get("/api/nai/tagcloud/search?q=樱花")
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
-        self.assertEqual(body["total"], 1)
+        self.assertEqual(body["total"], 2)
         self.assertEqual(body["generation_calls"], 0)
         bad = client.get("/api/nai/tagcloud/search?codex=nonexistent")
         self.assertEqual(bad.status_code, 400)

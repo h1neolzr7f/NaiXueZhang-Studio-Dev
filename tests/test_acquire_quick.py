@@ -127,6 +127,21 @@ class QuickImportRouteTests(unittest.TestCase):
         self.assertIn("已入库", resp.text)
         mock_intake.assert_called_once_with(123)
 
+    def test_aitag_quick_import_is_two_step_with_chooser(self):
+        client = self._client()
+        token = acquire_bookmark.get_or_create_token()
+        with patch("routes.acquire_quick._aitag_chooser_page") as mock_chooser:
+            from fastapi.responses import HTMLResponse
+
+            mock_chooser.return_value = HTMLResponse("<html><body>选择入库内容</body></html>")
+            first = client.post(
+                "/acquire/quick-import",
+                data={"url": "https://aitag.win/i/987", "token": token},
+            )
+        self.assertEqual(first.status_code, 200)
+        self.assertIn("选择入库内容", first.text)
+        mock_chooser.assert_called_once()
+
     def test_aitag_quick_import_delegates_to_existing_route(self):
         client = self._client()
         token = acquire_bookmark.get_or_create_token()
@@ -134,11 +149,22 @@ class QuickImportRouteTests(unittest.TestCase):
             mock_import.return_value = {"ok": True, "work_id": "987", "item": {"label": "角色卡"}}
             resp = client.post(
                 "/acquire/quick-import",
-                data={"url": "https://aitag.win/i/987", "token": token},
+                data={
+                    "url": "https://aitag.win/i/987",
+                    "token": token,
+                    "confirm": "1",
+                    "image_index": "2",
+                    "candidate": "cand-1|2|3",
+                },
             )
         self.assertEqual(resp.status_code, 200)
         self.assertIn("标签资产", resp.text)
         mock_import.assert_called_once()
+        payload = mock_import.call_args[0][0]
+        self.assertEqual(payload["work_id"], "987")
+        self.assertEqual(payload["image_index"], 2)
+        self.assertEqual(payload["slot_index"], 3)
+        self.assertEqual(payload["candidate_id"], "cand-1")
 
     def test_tagcloud_quick_import_collects_once(self):
         client = self._client()

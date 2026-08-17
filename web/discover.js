@@ -713,9 +713,20 @@
 
   function buildBookmarklet(token) {
     const base = window.location.origin;
-    const code = "(function(){try{var f=document.createElement('form');f.method='POST';f.action='"
-      + base + "/acquire/quick-import';f.target='_blank';var a=function(n,v){var i=document.createElement('input');i.type='hidden';i.name=n;i.value=v;f.appendChild(i);};a('url',location.href);a('title',document.title);a('token','"
-      + token + "');document.body.appendChild(f);f.submit();f.remove();}catch(e){alert('入库失败：'+e);}})()";
+    const code = "(function(){var OID='nxz-acquire-overlay';var old=document.getElementById(OID);if(old)old.remove();"
+      + "var box=document.createElement('div');box.id=OID;box.style.cssText='position:fixed;right:18px;top:18px;z-index:2147483647;width:400px;box-shadow:0 24px 60px rgba(0,0,0,.55);border-radius:18px;overflow:hidden;background:#070a11';"
+      + "var bar=document.createElement('div');bar.style.cssText='min-height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#10182a;color:#9db4cc;font:12px/1 sans-serif';"
+      + "var lb=document.createElement('span');lb.textContent='Nai学长 \\u00b7 一键入库';bar.appendChild(lb);"
+      + "var x=document.createElement('button');x.type='button';x.textContent='\\u00d7';x.style.cssText='border:0;background:none;color:#e6edfb;font-size:18px;cursor:pointer';x.onclick=function(){box.remove();};bar.appendChild(x);box.appendChild(bar);"
+      + "var fr=document.createElement('iframe');fr.name='nxz-acquire-frame';fr.style.cssText='width:100%;height:526px;border:0;background:#070a11';box.appendChild(fr);"
+      + "var hint=document.createElement('div');hint.style.cssText='padding:6px 10px;background:#10182a;color:#9db4cc;font:12px/1.5 sans-serif';"
+      + "hint.textContent='正在联系本机服务…';"
+      + "var mk=function(tgt){var f=document.createElement('form');f.method='POST';f.action='" + base + "/acquire/quick-import';f.target=tgt;f.style.display='none';var a=function(n,v){var i=document.createElement('input');i.type='hidden';i.name=n;i.value=v;f.appendChild(i);};a('url',location.href);a('title',document.title);a('token','" + token + "');document.body.appendChild(f);return f;};"
+      + "var fb=document.createElement('button');fb.type='button';fb.textContent='没反应？在新标签页打开';fb.style.cssText='margin-left:8px;padding:3px 10px;border:0;border-radius:999px;background:#3b82f6;color:#fff;cursor:pointer;font-size:12px';"
+      + "fb.onclick=function(){var f2=mk('_blank');f2.submit();f2.remove();};hint.appendChild(fb);box.appendChild(hint);"
+      + "document.body.appendChild(box);var f=mk('nxz-acquire-frame');f.submit();f.remove();"
+      + "window.addEventListener('message',function onMsg(e){if(!e||!e.data)return;var b=document.getElementById(OID);if(e.data==='nxz-acquire-ready'&&hint)hint.style.display='none';if(e.data==='nxz-acquire-close'&&b)b.remove();});"
+      + "})()";
     return "javascript:" + code;
   }
   async function setupBookmarklet() {

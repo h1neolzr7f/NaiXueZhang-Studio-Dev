@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>我的图库 · Nai学长工作室</title>
   <link rel="stylesheet" href="/assets/shared/site-nav.css?v=756cdf2a38" />
-  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=d33502d3a0" />
+  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=1069a21e9e" />
   <link rel="stylesheet" href="/assets/studio-theme.css?v=51de05869a" />
 </head>
 <body data-page="library">
@@ -41,7 +41,14 @@
         <option value="title">标题顺序</option>
       </select>
       <button class="ex-btn primary" type="submit">搜索</button>
+      <button class="ex-btn" type="button" data-open-folder>打开本机文件夹</button>
+      <button class="ex-btn" type="button" data-queue-clear hidden>清空待生成</button>
     </form>
+    <div class="ex-drop" data-drop hidden>
+      <p>把带 NovelAI 元数据的 PNG 拖到这里，导入当前自选库 / QQ 群库。</p>
+      <input type="file" data-drop-files accept="image/png,image/jpeg,.png,.jpg,.jpeg" multiple hidden />
+      <button class="ex-btn" type="button" data-drop-pick>选择文件</button>
+    </div>
     <div class="ex-lib">
       <aside class="ex-inner-side">
         <h3>快速访问</h3>
@@ -87,6 +94,6 @@
   <script src="/assets/shared/api-client.js?v=2a8a70c746"></script>
   <script src="/assets/shared/work-bridge.js?v=e03f149e05"></script>
   <script src="/assets/shared/site-nav.js?v=3846bb4a62"></script>
-  <script src="/assets/library-desk.js?v=07c0ed2040"></script>
+  <script src="/assets/library-desk.js?v=fc044b7ef9"></script>
 </body>
 </html>

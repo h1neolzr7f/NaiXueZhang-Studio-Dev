@@ -311,9 +311,7 @@
     const images = (detail && detail.images) || [];
     const src = thumb(item) || (images.length ? detailImageSrc(images[0], gid) : "");
     const tags = itemTags(work).length ? itemTags(work) : itemTags(item);
-    const studio = window.WorkBridge
-      ? window.WorkBridge.buildUrl("/studio", id, 0, gid)
-      : ("/studio?from=" + encodeURIComponent(id) + "&gallery=" + encodeURIComponent(gid));
+    const studio = "/generate?from=" + encodeURIComponent(id) + "&gallery=" + encodeURIComponent(gid);
     const remix = "/remix?from=" + encodeURIComponent(id) + "&gallery=" + encodeURIComponent(gid);
     const promptText = String(work.prompt || work.comment || item.prompt || "").trim();
     host.innerHTML = `
@@ -325,7 +323,7 @@
         const isrc = detailImageSrc(image, gid);
         return isrc ? `<img src="${escapeText(isrc)}" alt="" loading="lazy" />` : "";
       }).join("")}</div>` : ""}
-      ${tags.length ? `<div class="ex-tags" data-detail-tags>${tags.slice(0, 14).map((tag) => `<button class="ex-tag" type="button" data-tag="${escapeText(tag)}">${escapeText(tag)}</button>`).join("")}</div>` : ""}
+      ${tags.length ? `<div class="ex-tags" data-detail-tags>${tags.slice(0, 14).map((tag) => `<button class="ex-tag" type="button" data-tag="${escapeText(tag)}">${escapeText(tag)}</button>`).join("")}</div><p class="ex-empty" data-tag-zh></p>` : ""}
       ${promptText ? `<details class="ex-advanced"><summary>查看咒语</summary><pre class="ex-log">${escapeText(promptText.slice(0, 2000))}</pre></details>` : ""}
       <div class="ex-step"><b>资产谱系</b><div class="ex-flow-mini"><span>发现</span><span>入库</span><span>生成引用</span></div></div>
       <div class="ex-actions">
@@ -355,6 +353,15 @@
       } catch (_) { if (queueBtn) queueBtn.textContent = "加入待生成"; }
     }
     void syncToggles();
+    if (tags.length) {
+      window.ApiClient.get("/api/tags/translate?tags=" + encodeURIComponent(tags.slice(0, 14).join(","))).then((tr) => {
+        const note = host.querySelector("[data-tag-zh]");
+        const mapped = ((tr && tr.items) || []).filter((item) => item && item.translated && item.zh);
+        if (note && mapped.length) {
+          note.textContent = mapped.slice(0, 8).map((item) => item.original + " → " + item.zh).join(" · ");
+        }
+      }).catch(() => { /* keep original tags */ });
+    }
     if (favBtn) favBtn.addEventListener("click", async () => {
       favBtn.disabled = true;
       try {
@@ -398,13 +405,11 @@
     void loadRibbon();
   }
   function selectedHref(kindName) {
-    if (!state.selected) return kindName === "remix" ? "/remix" : "/studio";
+    if (!state.selected) return kindName === "remix" ? "/remix" : "/generate";
     const gid = state.selected.gallery_id || galleryId();
     const id = itemId(state.selected);
     if (kindName === "remix") return "/remix?from=" + encodeURIComponent(id) + "&gallery=" + encodeURIComponent(gid);
-    return window.WorkBridge
-      ? window.WorkBridge.buildUrl("/studio", id, 0, gid)
-      : ("/studio?from=" + encodeURIComponent(id) + "&gallery=" + encodeURIComponent(gid));
+    return "/generate?from=" + encodeURIComponent(id) + "&gallery=" + encodeURIComponent(gid);
   }
   async function loadRibbon(total) {
     const set = (sel, value) => { const el = document.querySelector(sel); if (el) el.textContent = value; };
@@ -511,8 +516,56 @@
     state.page = 1;
     state.items = [];
     state.dupes = [];
+    const clearBtn = document.querySelector("[data-queue-clear]");
+    if (clearBtn) clearBtn.hidden = state.view !== "queue";
     if (state.view === "dupes") void loadDupes();
     else void search(1, false);
+  }
+  function syncDropZone() {
+    const zone = document.querySelector("[data-drop]");
+    if (!zone) return;
+    const gid = galleryId();
+    zone.hidden = gid !== "codex" && gid !== "qqgroup";
+  }
+  async function openStorageFolder() {
+    try {
+      const result = await window.ApiClient.post("/api/storage/open?target=images", {});
+      setStatus((result && result.message) || (result && result.opened ? "已打开本机文件夹。" : "当前系统不能自动打开文件夹。"));
+    } catch (error) {
+      setStatus("打开文件夹失败：" + (error.message || error));
+    }
+  }
+  async function clearQueue() {
+    if (!window.confirm("清空全部待生成队列？收藏不受影响。")) return;
+    try {
+      await window.ApiClient.post("/api/queue/clear", {});
+      setStatus("待生成队列已清空。");
+      if (state.view === "queue") void search(1, false);
+      void loadRibbon();
+    } catch (error) {
+      setStatus("清空失败：" + (error.message || error));
+    }
+  }
+  async function importDroppedFiles(files) {
+    const gid = galleryId();
+    if (gid !== "codex" && gid !== "qqgroup") {
+      setStatus("拖入入库只支持自选库 / QQ 群库。请先在上方切换图库。");
+      return;
+    }
+    const list = Array.from(files || []);
+    if (!list.length) return;
+    const form = new FormData();
+    list.forEach((file) => form.append("files", file));
+    setStatus("正在导入 " + list.length + " 个文件…");
+    try {
+      const result = await window.ApiClient.post("/api/gallery/" + encodeURIComponent(gid) + "/import-drop", form);
+      const imported = ((result && result.accepted) || []).length;
+      const rejected = ((result && result.rejected) || []).length;
+      setStatus("导入完成：成功 " + imported + " 项" + (rejected ? "，拒绝 " + rejected + " 项（需 NovelAI 元数据）" : "") + "。");
+      void search(1, false);
+    } catch (error) {
+      setStatus("拖入导入失败：" + (error.message || error));
+    }
   }
   function start() {
     if (!window.ApiClient) return;
@@ -541,8 +594,30 @@
       setPicked();
       loadReviewedDupes();
       renderDetail(null);
+      syncDropZone();
       void loadGroups().then(() => switchView(state.view));
     });
+    document.querySelector("[data-open-folder]")?.addEventListener("click", () => { void openStorageFolder(); });
+    document.querySelector("[data-queue-clear]")?.addEventListener("click", () => { void clearQueue(); });
+    const drop = document.querySelector("[data-drop]");
+    const dropInput = document.querySelector("[data-drop-files]");
+    document.querySelector("[data-drop-pick]")?.addEventListener("click", () => dropInput && dropInput.click());
+    if (dropInput) dropInput.addEventListener("change", () => {
+      void importDroppedFiles(dropInput.files);
+      dropInput.value = "";
+    });
+    if (drop) {
+      drop.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        drop.classList.add("is-on");
+      });
+      drop.addEventListener("dragleave", () => drop.classList.remove("is-on"));
+      drop.addEventListener("drop", (event) => {
+        event.preventDefault();
+        drop.classList.remove("is-on");
+        void importDroppedFiles(event.dataTransfer && event.dataTransfer.files);
+      });
+    }
     if (groupSelect) groupSelect.addEventListener("change", () => {
       if (state.view === "all") void search(1, false);
     });
@@ -673,7 +748,10 @@
       const select = document.querySelector("[data-gallery]");
       if (wanted && select && Array.from(select.options).some((opt) => opt.value === wanted)) select.value = wanted;
       return loadGroups();
-    }).then(() => switchView("all"));
+    }).then(() => {
+      syncDropZone();
+      switchView("all");
+    });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();

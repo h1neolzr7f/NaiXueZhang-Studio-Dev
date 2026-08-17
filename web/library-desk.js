@@ -366,7 +366,13 @@
         + (params.group ? "&group=" + encodeURIComponent(params.group) : "");
     }
     if (!append) setStatus("正在搜索…");
-    const data = await window.ApiClient.get(url);
+    let data = null;
+    try {
+      data = await window.ApiClient.get(url);
+    } catch (error) {
+      setStatus("搜索失败：" + (error.message || error));
+      return;
+    }
     const batch = (data && data.items) || [];
     state.items = append ? state.items.concat(batch) : batch;
     state.page = page;
@@ -388,7 +394,13 @@
   async function loadDupes() {
     setStatus("正在查重复…");
     const gid = galleryId();
-    const data = await window.ApiClient.get("/api/gallery/" + encodeURIComponent(gid) + "/duplicates?kind=" + encodeURIComponent(state.dupeKind));
+    let data = null;
+    try {
+      data = await window.ApiClient.get("/api/gallery/" + encodeURIComponent(gid) + "/duplicates?kind=" + encodeURIComponent(state.dupeKind));
+    } catch (error) {
+      setStatus("查重复失败：" + (error.message || error) + "。先建索引再试。");
+      return;
+    }
     state.dupes = (data && data.groups) || [];
     setStatus(state.dupes.length ? ("查到 " + state.dupes.length + " 组重复" + (data.truncated ? "（已截断）" : "")) : "");
     renderGrid();

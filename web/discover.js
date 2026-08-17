@@ -192,7 +192,13 @@
     }
     aitagLastQuery = { q, sort: sort || "new" };
     setAitagStatus(page > 1 ? "正在加载下一页…" : "正在搜索…");
-    const data = await window.ApiClient.get(aitagSearchUrl(q, sort, page));
+    let data = null;
+    try {
+      data = await window.ApiClient.get(aitagSearchUrl(q, sort, page));
+    } catch (error) {
+      setAitagStatus("搜索失败：" + (error.message || error) + "。网络恢复后再试。");
+      return;
+    }
     const batch = (data && (data.items || data.works)) || [];
     items = append ? items.concat(batch) : batch;
     aitagPage = page;
@@ -205,7 +211,13 @@
   }
   async function loadAitagFavorites(page, append) {
     setAitagStatus(page > 1 ? "正在加载下一页…" : "正在读收藏…");
-    const data = await window.ApiClient.get("/api/nai/aitag/favorites/works?page=" + page + "&page_size=24");
+    let data = null;
+    try {
+      data = await window.ApiClient.get("/api/nai/aitag/favorites/works?page=" + page + "&page_size=24");
+    } catch (error) {
+      setAitagStatus("收藏读取失败：" + (error.message || error));
+      return;
+    }
     const batch = (data && (data.items || data.works)) || [];
     items = append ? items.concat(batch) : batch;
     aitagPage = page;

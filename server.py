@@ -42,6 +42,7 @@ from routes import (
     experience,
     gallery,
     maintenance,
+    tagcloud,
     update as update_routes,
     nai_tags,
     nai,
@@ -186,6 +187,7 @@ app.include_router(butler.router)
 app.include_router(director.router)
 app.include_router(references.router)
 app.include_router(aitag.router)
+app.include_router(tagcloud.router)
 app.include_router(settings.router)
 app.include_router(char_swap.router)
 app.include_router(nai.router)

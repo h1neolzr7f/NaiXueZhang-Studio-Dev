@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>在线发现 · Nai学长工作室</title>
-  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=5837bce3ad" />
+  <link rel="stylesheet" href="/assets/shared/experience-rail.css?v=d33502d3a0" />
   <link rel="stylesheet" href="/assets/studio-theme.css?v=51de05869a" />
 </head>
 <body data-page="discover">
@@ -13,7 +13,7 @@
     <section class="ex-hello">
       <div>
         <h1>采集</h1>
-        <p>只采集 Pixiv 和 AITag。先点下面一张卡选站点，再按三步做。右侧助手不能替你采集。</p>
+        <p>采集三个来源：Pixiv 开爬虫，AITag 搜作品，法典图鉴搜提示词。先点一张卡选来源，右侧助手不能替你采集。</p>
       </div>
     </section>
 
@@ -29,6 +29,12 @@
         <b>AITag</b>
         <small>适合挑几张：搜一搜，勾选后再入库</small>
         <span class="ex-chip" data-aitag-state>读取中…</span>
+      </button>
+      <button class="ex-target" type="button" data-site="tagcloud" role="tab" aria-selected="false">
+        <em>3</em>
+        <b>法典图鉴</b>
+        <small>适合找提示词：构图、画风、画师串，选中再收</small>
+        <span class="ex-chip" data-tagcloud-state>读取中…</span>
       </button>
     </section>
 
@@ -51,6 +57,7 @@
           <span class="ex-chip" data-pixiv-live-round>本轮 —</span>
           <span class="ex-chip" data-pixiv-live-quar>隔离 —</span>
           <span class="ex-chip" data-pixiv-live-updated>—</span>
+          <button class="ex-chip" type="button" data-pixiv-watchdog title="崩溃时自动重启采集进程">自动守护 …</button>
         </div>
         <div class="ex-live-counts" data-pixiv-live-counts></div>
         <small class="ex-live-note" data-pixiv-live-note>进度留在本页，不用去别处看。</small>
@@ -176,6 +183,45 @@
         </div>
       </div>
     </section>
+
+    <section class="ex-panel ex-crawl" data-site-panel="tagcloud" hidden>
+      <ol class="ex-howto">
+        <li>输入中文或英文关键词，或先选一部法典再翻</li>
+        <li>点卡片选中词条，悬停卡片点「看」读完整提示词</li>
+        <li>点「收进提示词库」保存到本机；词条详情里可一键送到生成台</li>
+      </ol>
+      <div class="ex-crawl-head">
+        <div>
+          <h2>法典图鉴 · 提示词</h2>
+          <p>社区整理的 NovelAI 提示词法典。收藏只存词条文本和远程链接，不下载图片；R18 法典默认不显示。</p>
+        </div>
+        <a class="ex-btn" href="/tag-assets">打开标签资产</a>
+      </div>
+      <div class="ex-toolbar" role="tablist" aria-label="法典视图">
+        <button class="ex-tab is-on" type="button" data-tagcloud-view="search" role="tab" aria-selected="true">搜索结果</button>
+        <button class="ex-tab" type="button" data-tagcloud-view="collected" role="tab" aria-selected="false">提示词库</button>
+      </div>
+      <form class="ex-search-hero" data-tagcloud-search>
+        <input name="q" type="search" placeholder="例如：樱花、构图、画师名" />
+        <select name="codex" data-tagcloud-codex>
+          <option value="">全部法典</option>
+        </select>
+        <button class="ex-btn primary" type="submit">搜索</button>
+      </form>
+      <p class="ex-empty" data-tagcloud-status>输入关键词或选一部法典再搜。都空着点搜索不会访问站点。</p>
+      <section class="ex-grid" data-tagcloud-grid></section>
+      <div class="ex-actions ex-more-row">
+        <button class="ex-btn" type="button" data-tagcloud-more hidden>加载更多</button>
+      </div>
+      <div class="ex-select-bar">
+        <span data-tagcloud-picked>还没选词条</span>
+        <div class="ex-actions">
+          <button class="ex-btn" type="button" data-tagcloud-clear>取消选择</button>
+          <button class="ex-btn" type="button" data-tagcloud-all>全选本页</button>
+          <button class="ex-btn primary" type="button" data-tagcloud-collect>收进提示词库</button>
+        </div>
+      </div>
+    </section>
   </main>
 
   <div class="ex-modal" data-aitag-detail hidden>
@@ -188,9 +234,19 @@
     </div>
   </div>
 
+  <div class="ex-modal" data-tagcloud-detail hidden>
+    <div class="ex-modal-card" role="dialog" aria-modal="true" aria-label="法典词条详情">
+      <header class="ex-modal-head">
+        <h3 data-tc-detail-title>词条详情</h3>
+        <button class="ex-btn" type="button" data-tc-detail-close aria-label="关闭">×</button>
+      </header>
+      <div class="ex-modal-body" data-tc-detail-body></div>
+    </div>
+  </div>
+
   <script src="/assets/shared/api-client.js?v=2a8a70c746"></script>
   <script src="/assets/shared/site-nav.js?v=3846bb4a62"></script>
   <script src="/assets/pixiv-intake-control.js?v=ae372e5516"></script>
-  <script src="/assets/discover.js?v=40a89764f1"></script>
+  <script src="/assets/discover.js?v=3b87f24f96"></script>
 </body>
 </html>

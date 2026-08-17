@@ -22,7 +22,7 @@
     if (status) status.textContent = text;
   }
   function showSite(site) {
-    const next = site === "aitag" ? "aitag" : "pixiv";
+    const next = ["pixiv", "aitag", "tagcloud"].indexOf(site) >= 0 ? site : "pixiv";
     document.querySelectorAll("[data-site]").forEach((button) => {
       const on = button.getAttribute("data-site") === next;
       button.classList.toggle("is-on", on);
@@ -34,6 +34,7 @@
     const url = new URL(window.location.href);
     url.searchParams.set("site", next);
     window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    if (next === "tagcloud") void ensureTagcloudCodexes();
   }
   function syncAitagActions() {
     const empty = selected.size === 0;
@@ -94,6 +95,17 @@
       }
     } catch (_) {
       if (aitagChip) aitagChip.textContent = "状态未知";
+    }
+    const tagcloudChip = document.querySelector("[data-tagcloud-state]");
+    try {
+      const data = await window.ApiClient.get("/api/nai/tagcloud/status");
+      const ok = Boolean(data && data.ok && data.enabled !== false);
+      if (tagcloudChip) {
+        tagcloudChip.textContent = ok ? ("可以搜索 · " + Number(data.safe_codex_count || 0) + " 部法典") : "现在搜不到";
+        tagcloudChip.classList.toggle("is-on", ok);
+      }
+    } catch (_) {
+      if (tagcloudChip) tagcloudChip.textContent = "状态未知";
     }
   }
   function setLiveChip(selector, text, on) {
@@ -159,6 +171,41 @@
       renderPixivLive(payload || {});
     } catch (_) {
       setLiveChip("[data-pixiv-live-process]", "状态暂时读不到");
+    }
+  }
+  async function refreshWatchdog() {
+    const chip = document.querySelector("[data-pixiv-watchdog]");
+    if (!chip || !window.ApiClient) return;
+    try {
+      const data = await window.ApiClient.get("/api/crawler/watchdog");
+      const on = Boolean(data && data.enabled);
+      chip.textContent = "自动守护 " + (on ? "开" : "关");
+      chip.classList.toggle("is-on", on);
+      chip.dataset.on = on ? "1" : "0";
+      chip.title = on
+        ? "守护已开：采集崩溃会自动拉起。点击关闭"
+        : "守护已关。点击打开：开始采集并看住进程，崩溃自动重启";
+    } catch (_) {
+      chip.textContent = "自动守护 状态未知";
+    }
+  }
+  async function toggleWatchdog() {
+    const chip = document.querySelector("[data-pixiv-watchdog]");
+    if (!chip) return;
+    const next = chip.dataset.on !== "1";
+    if (next && !window.confirm("打开自动守护？\n\n会按当前任务开始采集 Pixiv，并在崩溃时自动重启。只有 NovelAI 作品会进图库。")) {
+      return;
+    }
+    chip.disabled = true;
+    try {
+      await window.ApiClient.post("/api/crawler/watchdog", { enabled: next });
+    } catch (error) {
+      const msg = document.getElementById("pixivActionMsg");
+      if (msg) msg.textContent = "切换守护失败：" + (error.message || error);
+    } finally {
+      chip.disabled = false;
+      void refreshWatchdog();
+      void refreshStates();
     }
   }
   function aitagFilters() {
@@ -356,18 +403,20 @@
     });
     const msg = body.querySelector("[data-detail-msg]");
     body.querySelector("[data-detail-import]")?.addEventListener("click", async (event) => {
-      event.currentTarget.disabled = true;
+      const button = event.currentTarget;
+      button.disabled = true;
       try {
         await importOne(detailWorkId);
         if (msg) msg.textContent = "已导入。打开「标签资产」就能用。";
       } catch (error) {
         if (msg) msg.textContent = "导入失败：" + (error.message || error);
       } finally {
-        event.currentTarget.disabled = false;
+        button.disabled = false;
       }
     });
     body.querySelector("[data-detail-fav]")?.addEventListener("click", async (event) => {
-      event.currentTarget.disabled = true;
+      const button = event.currentTarget;
+      button.disabled = true;
       try {
         const on = await toggleFavorite(detailWorkId);
         if (msg) msg.textContent = on ? "已收藏（只记位置，不下载）。" : "已取消收藏。";
@@ -375,7 +424,7 @@
       } catch (error) {
         if (msg) msg.textContent = "收藏失败：" + (error.message || error);
       } finally {
-        event.currentTarget.disabled = false;
+        button.disabled = false;
       }
     });
     body.querySelectorAll("[data-import-candidate]").forEach((button) => {
@@ -413,6 +462,253 @@
       body.innerHTML = '<p class="ex-empty">详情读取失败：' + escapeText(error.message || error) + "</p>";
     }
   }
+  /* ---------------- 法典图鉴（quicktagcloud） ---------------- */
+  const tcSelected = new Set();
+  let tcItems = [];
+  let tcView = "search";
+  let tcPage = 1;
+  let tcHasMore = false;
+  let tcLastQuery = null;
+  let tcCodexesLoaded = false;
+
+  function tcKey(item) {
+    return String(item.codex_id || "") + ":" + String(item.id || item.entry_id || "");
+  }
+  function setTcStatus(text) {
+    const status = document.querySelector("[data-tagcloud-status]");
+    if (status) status.textContent = text;
+  }
+  function syncTcActions() {
+    const empty = tcSelected.size === 0;
+    document.querySelectorAll("[data-tagcloud-collect], [data-tagcloud-clear]").forEach((button) => {
+      button.disabled = empty;
+    });
+    document.querySelector("[data-tagcloud-all]")?.toggleAttribute("disabled", !tcItems.length);
+    const more = document.querySelector("[data-tagcloud-more]");
+    if (more) more.hidden = !tcHasMore || tcView !== "search";
+  }
+  function renderTagcloud() {
+    const host = document.querySelector("[data-tagcloud-grid]");
+    const picked = document.querySelector("[data-tagcloud-picked]");
+    if (picked) picked.textContent = tcSelected.size ? ("已选 " + tcSelected.size + " 条，下一步点收进提示词库") : "还没选词条，先点卡片";
+    syncTcActions();
+    if (!host) return;
+    if (!tcItems.length) {
+      host.innerHTML = '<p class="ex-empty">'
+        + (tcView === "collected" ? "提示词库是空的。先在搜索结果里收几条。" : "这里会列出法典词条。点卡片选中，悬停点「看」读完整提示词。")
+        + "</p>";
+      return;
+    }
+    host.innerHTML = tcItems.map((item) => {
+      const key = tcKey(item);
+      const on = tcSelected.has(key) ? " is-on" : "";
+      const src = item.thumb || "";
+      const place = (item.path || []).join(" / ") || item.codex_title || "";
+      return `<article class="ex-card${on}" data-tc-key="${escapeText(key)}" title="点击选中或取消">
+        ${src ? `<img src="${escapeText(src)}" alt="" loading="lazy" />` : `<div class="ex-ph"></div>`}
+        <span class="ex-check">✓</span>
+        <span class="ex-hover"><button type="button" data-tc-open="${escapeText(key)}" title="读完整提示词">看</button></span>
+        <div class="ex-meta">
+          <strong>${escapeText(item.title || key)}</strong>
+          <small>${escapeText(place)}</small>
+        </div>
+      </article>`;
+    }).join("");
+    host.querySelectorAll(".ex-card img").forEach((img) => {
+      img.addEventListener("error", () => { img.style.visibility = "hidden"; }, { once: true });
+    });
+  }
+  async function ensureTagcloudCodexes() {
+    if (tcCodexesLoaded || !window.ApiClient) return;
+    tcCodexesLoaded = true;
+    const select = document.querySelector("[data-tagcloud-codex]");
+    try {
+      const data = await window.ApiClient.get("/api/nai/tagcloud/codexes");
+      const rows = (data && data.items) || [];
+      if (select && rows.length) {
+        select.innerHTML = '<option value="">全部法典</option>' + rows.map((item) =>
+          `<option value="${escapeText(item.id)}">${escapeText(item.title)}（${Number(item.entry_count || 0)}）</option>`
+        ).join("");
+      }
+    } catch (_) {
+      tcCodexesLoaded = false;
+    }
+  }
+  async function searchTagcloud(query, codex, page, append) {
+    const q = String(query || "").trim();
+    const codexId = String(codex || "").trim();
+    if (!q && !codexId) {
+      tcItems = [];
+      tcHasMore = false;
+      tcLastQuery = null;
+      tcSelected.clear();
+      setTcStatus("输入关键词或选一部法典再搜。都空着点搜索不会访问站点。");
+      renderTagcloud();
+      return;
+    }
+    tcLastQuery = { q, codex: codexId };
+    setTcStatus(page > 1 ? "正在加载下一页…" : "正在搜索…");
+    let data = null;
+    try {
+      data = await window.ApiClient.get(
+        "/api/nai/tagcloud/search?q=" + encodeURIComponent(q)
+        + "&codex=" + encodeURIComponent(codexId)
+        + "&page=" + page + "&page_size=24"
+      );
+    } catch (error) {
+      setTcStatus("搜索失败：" + (error.message || error) + "。网络恢复后再试。");
+      return;
+    }
+    const batch = (data && data.items) || [];
+    tcItems = append ? tcItems.concat(batch) : batch;
+    tcPage = page;
+    tcHasMore = Boolean(data && data.has_more);
+    if (!append) tcSelected.clear();
+    setTcStatus(tcItems.length
+      ? ("共 " + (data.total != null ? data.total : tcItems.length) + " 条 · 已显示 " + tcItems.length + (tcHasMore ? " · 还能加载更多" : ""))
+      : "没有结果。换个词或换部法典试试。");
+    renderTagcloud();
+  }
+  async function loadTagcloudCollection() {
+    setTcStatus("正在读提示词库…");
+    let data = null;
+    try {
+      data = await window.ApiClient.get("/api/nai/tagcloud/collection");
+    } catch (error) {
+      setTcStatus("读取失败：" + (error.message || error));
+      return;
+    }
+    tcItems = ((data && data.items) || []).map((item) => ({
+      id: item.entry_id,
+      codex_id: item.codex_id,
+      codex_title: item.codex_title || "",
+      title: item.title || item.entry_id,
+      path: item.path || [],
+      tags: item.tags || "",
+      note: item.note || "",
+      thumb: item.thumb || "",
+      image: item.image || item.thumb || "",
+      collected: true,
+    }));
+    tcHasMore = false;
+    tcSelected.clear();
+    setTcStatus(tcItems.length ? ("提示词库共 " + tcItems.length + " 条。只存文本和远程链接，没下载图片。") : "提示词库是空的。先在搜索结果里收几条。");
+    renderTagcloud();
+  }
+  function switchTagcloudView(view) {
+    tcView = view === "collected" ? "collected" : "search";
+    document.querySelectorAll("[data-tagcloud-view]").forEach((button) => {
+      const on = button.getAttribute("data-tagcloud-view") === tcView;
+      button.classList.toggle("is-on", on);
+      button.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    const form = document.querySelector("[data-tagcloud-search]");
+    if (form) form.hidden = tcView !== "search";
+    tcItems = [];
+    tcHasMore = false;
+    tcPage = 1;
+    tcSelected.clear();
+    if (tcView === "collected") {
+      void loadTagcloudCollection();
+    } else {
+      setTcStatus("输入关键词或选一部法典再搜。都空着点搜索不会访问站点。");
+      renderTagcloud();
+    }
+  }
+  function findTagcloudItem(key) {
+    return tcItems.find((item) => tcKey(item) === key) || null;
+  }
+  function closeTagcloudDetail() {
+    const modal = document.querySelector("[data-tagcloud-detail]");
+    if (modal) modal.hidden = true;
+  }
+  function copyText(text, done) {
+    const finish = (ok) => { if (typeof done === "function") done(ok); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => finish(true), () => finish(false));
+      return;
+    }
+    const area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (_) { ok = false; }
+    area.remove();
+    finish(ok);
+  }
+  function openTagcloudDetail(key) {
+    const item = findTagcloudItem(key);
+    const modal = document.querySelector("[data-tagcloud-detail]");
+    const body = document.querySelector("[data-tc-detail-body]");
+    const title = document.querySelector("[data-tc-detail-title]");
+    if (!item || !modal || !body) return;
+    if (title) title.textContent = item.title || key;
+    const place = (item.path || []).join(" / ") || item.codex_title || "";
+    body.innerHTML = `
+      ${item.image ? `<img src="${escapeText(item.image)}" alt="" style="width:100%;border-radius:12px;margin-bottom:10px" data-tc-img />` : ""}
+      <p><b>法典</b> ${escapeText(item.codex_title || item.codex_id)}${place ? ` · <b>分类</b> ${escapeText(place)}` : ""}</p>
+      <h4 style="margin:10px 0 4px">提示词（含 NovelAI 权重语法，原样保留）</h4>
+      <pre class="ex-log" style="white-space:pre-wrap">${escapeText(item.tags || "（此词条没有提示词文本）")}</pre>
+      ${item.note ? `<h4 style="margin:10px 0 4px">注释</h4><p>${escapeText(item.note)}</p>` : ""}
+      <div class="ex-actions">
+        <button class="ex-btn primary" type="button" data-tc-send>送到生成台</button>
+        <button class="ex-btn" type="button" data-tc-copy>复制提示词</button>
+        <button class="ex-btn" type="button" data-tc-collect>${item.collected ? "从提示词库移除" : "收进提示词库"}</button>
+        <a class="ex-btn" href="${escapeText(item.source_url || "")}" target="_blank" rel="noreferrer noopener">查看原站</a>
+      </div>
+      <p class="ex-empty" data-tc-msg></p>
+    `;
+    const img = body.querySelector("[data-tc-img]");
+    if (img) img.addEventListener("error", () => { img.style.display = "none"; }, { once: true });
+    const msg = body.querySelector("[data-tc-msg]");
+    body.querySelector("[data-tc-send]").addEventListener("click", () => {
+      window.location.href = "/generate?prompt=" + encodeURIComponent(item.tags || "");
+    });
+    body.querySelector("[data-tc-copy]").addEventListener("click", () => {
+      copyText(item.tags || "", (ok) => { if (msg) msg.textContent = ok ? "已复制到剪贴板。" : "复制失败，请手动选择文本复制。"; });
+    });
+    body.querySelector("[data-tc-collect]").addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        const result = await window.ApiClient.post("/api/nai/tagcloud/collection/toggle", {
+          codex_id: item.codex_id,
+          entry_id: item.id,
+        });
+        item.collected = Boolean(result && result.collected);
+        button.textContent = item.collected ? "从提示词库移除" : "收进提示词库";
+        if (msg) msg.textContent = (result && result.message) || "";
+        if (tcView === "collected" && !item.collected) void loadTagcloudCollection();
+      } catch (error) {
+        if (msg) msg.textContent = "操作失败：" + (error.message || error);
+      } finally {
+        button.disabled = false;
+      }
+    });
+    modal.hidden = false;
+  }
+  async function collectTagcloudSelected() {
+    const keys = Array.from(tcSelected);
+    if (!keys.length) {
+      setTcStatus("先点卡片选中词条，再收进提示词库。");
+      return;
+    }
+    let ok = 0;
+    for (const key of keys) {
+      const item = findTagcloudItem(key);
+      if (!item) continue;
+      try {
+        const result = await window.ApiClient.post("/api/nai/tagcloud/collection/toggle", {
+          codex_id: item.codex_id,
+          entry_id: item.id,
+        });
+        if (result && result.collected) ok += 1;
+      } catch (_) { /* keep going */ }
+    }
+    setTcStatus(ok ? ("已收进提示词库 " + ok + " 条。点「提示词库」标签查看。") : "这次没有收藏成功。可以换几条再试。");
+  }
+
   function guardPixivStart() {
     const watch = document.getElementById("pixivStartWatch");
     const once = document.getElementById("pixivRunOnce");
@@ -433,7 +729,7 @@
   function start() {
     if (!window.ApiClient) return;
     const query = new URLSearchParams(window.location.search || "");
-    showSite(query.get("site") === "aitag" ? "aitag" : "pixiv");
+    showSite(query.get("site"));
     document.querySelectorAll("[data-site]").forEach((button) => {
       button.addEventListener("click", () => showSite(button.getAttribute("data-site")));
     });
@@ -480,14 +776,62 @@
     });
     document.querySelector("[data-aitag-import]")?.addEventListener("click", () => { void importSelected(); });
     document.querySelector("[data-aitag-fav]")?.addEventListener("click", () => { void favoriteSelected(); });
+    const tcForm = document.querySelector("[data-tagcloud-search]");
+    if (tcForm) {
+      tcForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const data = new FormData(tcForm);
+        void searchTagcloud(String(data.get("q") || ""), String(data.get("codex") || ""), 1, false);
+      });
+    }
+    document.querySelectorAll("[data-tagcloud-view]").forEach((button) => {
+      button.addEventListener("click", () => switchTagcloudView(button.getAttribute("data-tagcloud-view")));
+    });
+    document.querySelector("[data-tagcloud-more]")?.addEventListener("click", () => {
+      if (tcView === "search" && tcLastQuery) void searchTagcloud(tcLastQuery.q, tcLastQuery.codex, tcPage + 1, true);
+    });
+    const tcGrid = document.querySelector("[data-tagcloud-grid]");
+    if (tcGrid) {
+      tcGrid.addEventListener("click", (event) => {
+        const openBtn = event.target.closest("[data-tc-open]");
+        if (openBtn) {
+          event.stopPropagation();
+          openTagcloudDetail(openBtn.getAttribute("data-tc-open"));
+          return;
+        }
+        const card = event.target.closest("[data-tc-key]");
+        if (!card) return;
+        const key = card.getAttribute("data-tc-key");
+        if (tcSelected.has(key)) tcSelected.delete(key);
+        else tcSelected.add(key);
+        renderTagcloud();
+      });
+    }
+    document.querySelector("[data-tagcloud-clear]")?.addEventListener("click", () => {
+      tcSelected.clear();
+      renderTagcloud();
+    });
+    document.querySelector("[data-tagcloud-all]")?.addEventListener("click", () => {
+      tcItems.forEach((item) => tcSelected.add(tcKey(item)));
+      renderTagcloud();
+    });
+    document.querySelector("[data-tagcloud-collect]")?.addEventListener("click", () => { void collectTagcloudSelected(); });
+    document.querySelector("[data-tc-detail-close]")?.addEventListener("click", closeTagcloudDetail);
+    document.querySelector("[data-tagcloud-detail]")?.addEventListener("click", (event) => {
+      if (event.target === event.currentTarget) closeTagcloudDetail();
+    });
     document.querySelector("[data-detail-close]")?.addEventListener("click", closeDetail);
     document.querySelector("[data-aitag-detail]")?.addEventListener("click", (event) => {
       if (event.target === event.currentTarget) closeDetail();
     });
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeDetail();
+      if (event.key === "Escape") {
+        closeDetail();
+        closeTagcloudDetail();
+      }
     });
     guardPixivStart();
+    document.querySelector("[data-pixiv-watchdog]")?.addEventListener("click", () => { void toggleWatchdog(); });
     window.addEventListener("pixiv-intake-report", (event) => {
       pixivLiveEventAt = Date.now();
       renderPixivLive((event && event.detail) || {});
@@ -495,10 +839,12 @@
     renderAitag();
     void refreshStates();
     void refreshPixivLive();
+    void refreshWatchdog();
     setInterval(() => {
       if (document.hidden) return;
       void refreshStates();
       void refreshPixivLive();
+      void refreshWatchdog();
     }, 5000);
     if (query.get("site") === "aitag" && query.get("q") && form) {
       void searchAitag(query.get("q"), "new", 1, false);
